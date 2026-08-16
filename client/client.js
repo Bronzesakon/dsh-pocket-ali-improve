@@ -437,12 +437,174 @@ var MOBILE_CSS = `
     min-width: 0 !important;
   }
 
+    /* --- Narrow viewport containment ---
+     The official tree is a desktop flex/grid composition. A single long
+     session id, a fixed-size model selector, or a min-content child can make
+     the whole center column wider than the phone even when its outer grid is
+     already 1fr. Keep every owning surface shrinkable before applying the
+     component-specific rules below. */
+  html,
+  body {
+    width: 100% !important;
+    max-width: 100vw !important;
+    overflow-x: hidden !important;
+  }
+  [data-mobile-nav="frame"],
+  [data-mobile-nav="frame"] > :nth-child(2),
+  [data-mobile-nav="frame"] > :nth-child(2) > [data-phase],
+  [data-phase],
+  [data-phase] > header,
+  [data-phase] > header > :first-child,
+  [data-phase] > header > :first-child > :first-child,
+  [data-phase] > header > :first-child > :last-child,
+  [data-phase] [class*="_scrollBody"],
+  [data-phase] [class*="_viewArea"],
+  [data-phase] [class*="_composerStack"],
+  [data-phase] [class*="_composerSeat"],
+  [data-composer-card] {
+    box-sizing: border-box !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  [data-mobile-nav="frame"] > :nth-child(2),
+  [data-mobile-nav="frame"] > :nth-child(2) > [data-phase],
+  [data-phase],
+  [data-phase] > header {
+    overflow-x: hidden !important;
+  }
+
+  /* Current-session crumbs can be a plain span (not the button-shaped crumb),
+     so the existing `.crumb` ellipsis rule does not reach them. */
+  [data-phase] header [class*="_crumbs"],
+  [data-phase] header [class*="_titleCluster"] {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+  [data-phase] header [class*="_crumbCurrent"] {
+    display: block !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  [data-phase] header [class*="_headerActions"] {
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+  [data-phase] header [class*="_tabs"] {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none !important;
+  }
+  [data-phase] header [class*="_tabs"]::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  /* Markdown and plugin cards must wrap long paths, URLs, tool names, and
+     unbroken model output inside the conversation width. Code/pre blocks keep
+     their own intentional horizontal scroller instead of widening the page. */
+  [data-phase] [class*="_scroll"]:has(p) {
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
+  }
+  [data-phase] [class*="_scroll"]:has(p) img,
+  [data-phase] [class*="_scroll"]:has(p) video,
+  [data-phase] [class*="_scroll"]:has(p) table {
+    max-width: 100% !important;
+  }
+  [data-phase] [class*="_scroll"]:has(p) pre,
+  [data-phase] [class*="_scroll"]:has(p) pre code {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    white-space: pre !important;
+  }
+
+  /* Composer: on a phone the tool/mode group and model/send group may not fit
+     one desktop row. Put them on two bounded rows instead of allowing the
+     model pill or send control to protrude past the card. */
+  [data-composer-card] {
+    width: 100% !important;
+    overflow: hidden !important;
+  }
+  [data-composer-card] [data-input-scroll],
+  [data-composer-card] [class*="_grow"],
+  [data-composer-card] [class*="_backdrop"],
+  [data-composer-card] textarea {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  [data-composer-card] [class*="_row"] {
+    flex-wrap: wrap !important;
+    row-gap: 4px !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  [data-composer-card] [class*="_tools"],
+  [data-composer-card] [class*="_trailing"] {
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  [data-composer-card] [class*="_tools"] {
+    overflow: hidden !important;
+  }
+  [data-composer-card] [class*="_modes"] {
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+  }
+  [data-composer-card] [class*="_trailing"] {
+    justify-content: flex-end !important;
+    overflow: hidden !important;
+  }
+  [data-composer-card] [class*="_trailing"] > * {
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  [data-composer-card] [class*="_select"] {
+    min-width: 0 !important;
+    max-width: min(52vw, 220px) !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* The status band is supplemental metadata. Wrap it into bounded lines on a
+     phone instead of clipping the right half of the metrics string. */
+  [data-mobile-nav="stats"] {
+    height: auto !important;
+    min-height: 28px !important;
+    max-height: none !important;
+    flex-flow: row wrap !important;
+    align-content: center !important;
+    white-space: normal !important;
+    overflow: hidden !important;
+    row-gap: 0 !important;
+  }
+  [data-mobile-nav="stats"] > * {
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+  }
+  [data-mobile-nav="stats"] * {
+    min-width: 0 !important;
+  }
+
   /* The sidebar column (first grid child) becomes a left drawer. The drawer
      hugs the sidebar content exactly (the wide sidebar carries an inline
      width, ~280px): a fixed 92vw box would leave a white strip where the
      container background shows beside the content.
-     Closed state: translateX(-110%) \u2014 more than -100% of the max-content
-     width \u2014 guarantees the whole drawer (and its shadow, had it one) leaves
+     Closed state: translateX(-110%) — more than -100% of the max-content
+     width — guarantees the whole drawer (and its shadow, had it one) leaves
      the viewport. A mere -100% leaves a sliver on screen; -105% (as used
      before) left 14px of the drawer plus a long 32px-blur shadow gradient
      visible along the left edge of the main UI. No box-shadow at all: the
@@ -469,7 +631,7 @@ var MOBILE_CSS = `
   }
 
   /* Expanded state (frame without data-sidebar-collapsed) slides the drawer in.
-     The open state must be transform:none \u2014 NOT translateX(0): an identity
+     The open state must be transform:none — NOT translateX(0): an identity
      transform still makes the drawer the containing block for fixed-position
      descendants (the settings dialog's .VOzbGW_overlay is portaled into the
      sidebar DOM). With the identity transform the wide settings sheet
@@ -492,7 +654,7 @@ var MOBILE_CSS = `
      type. On a phone: shrink the type a notch and widen the lines by
      trimming the gutters (the sidebar drawer list keeps its size). The
      flow's scroll container is the only _scroll element holding markdown
-     <p> paragraphs \u2014 the composer's own scroll (textarea) is excluded
+     <p> paragraphs — the composer's own scroll (textarea) is excluded
      via :has(p). */
   /* The official main scroll body reserves scrollbar-gutter for desktop
      scrollbars (8px), which shoves every column off-center on a phone.
@@ -510,7 +672,7 @@ var MOBILE_CSS = `
     height: 0 !important;
   }
   /* Message action rows (copy / run-time badges) can overflow the right
-     edge on narrow screens \u2014 keep them inside the message width. */
+     edge on narrow screens — keep them inside the message width. */
   [data-phase] [class$="_actions"] {
     overflow: hidden !important;
   }
@@ -530,7 +692,7 @@ var MOBILE_CSS = `
   /* The official markdown styles set an explicit 16px on paragraphs and
      list items, so the container's inherited 15px is not enough. User
      messages render their text in a div whose class carries _text_
-     (16px too) \u2014 cover it as well. */
+     (16px too) — cover it as well. */
   [data-phase] [class$="_scroll"]:has(p) p,
   [data-phase] [class$="_scroll"]:has(p) li,
   [data-phase] [class$="_scroll"]:has(p) [class*="_text_"] {
@@ -602,11 +764,11 @@ var MOBILE_CSS = `
 
   /* --- Settings dialog on mobile ---
      Desktop: 800px two-column flex (188px nav + content). Mobile: a
-     near-full-width sheet \u2014 nav tabs wrap into rows on top, option rows
+     near-full-width sheet — nav tabs wrap into rows on top, option rows
      stay horizontal (title+description left, control right). Structural
      selectors are scoped to the unique aria-modal dialog; every
      settings-specific rule is gated with
-     :has(> :first-child > :last-child > button) \u2014 the settings nav tab
+     :has(> :first-child > :last-child > button) — the settings nav tab
      list holds <button> tabs, so the transient export dialog (the same
      primitives Modal, header(title+close)+description+body) keeps its
      official centered card layout. Requires :has() support
@@ -648,7 +810,7 @@ var MOBILE_CSS = `
     max-width: calc(100vw - 32px) !important;
   }
   /* Nav bar: hide the "Settings" caption (redundant on a full-width sheet)
-     and wrap the tab list so every tab is visible \u2014 a horizontal scroll cut
+     and wrap the tab list so every tab is visible — a horizontal scroll cut
      the last tab ("Plugins") off with no affordance to scroll. */
   [aria-modal="true"]:has(> :first-child > :last-child > button):not(:has([role="navigation"])) > :first-child {
     width: 100% !important;
@@ -723,13 +885,13 @@ var MOBILE_CSS = `
          plus absolute drag handles to [data-dsh-frame]; its 5-track inline
          grid is already overridden above, but the handles and columns would
          still float over the main UI. On mobile the columns leave the grid
-         as floating bottom sheets and keep their own visibility state \u2014
+         as floating bottom sheets and keep their own visibility state —
          the suite's collapse chevron / preview tabs still work, so no
          feature is lost. The task-board / ssh plugins inject sidebar
          entries and center-column takeover panels; the entries need
          spacing and the kanban needs scrollable columns. */
 
-  /* Touch devices: the drag handles are useless \u2014 the floating expand
+  /* Touch devices: the drag handles are useless — the floating expand
      button is the opener. */
   .aionui-explorer-handle,
   .aionui-preview-handle {
@@ -750,7 +912,7 @@ var MOBILE_CSS = `
     border-left: none !important;
   }
   /* Explorer (file tree) bottom sheet: bottom edge aligned exactly with
-     the composer card's bottom line \u2014 the card sits 36px above the
+     the composer card's bottom line — the card sits 36px above the
      viewport bottom (8px composer padding + the 28px stats strip below
      the card), so the sheet uses the same 36px bottom offset. */
   [data-aionui-explorer-col] {
@@ -804,13 +966,13 @@ var MOBILE_CSS = `
     visibility: hidden !important;
   }
   /* The suite's own expand button reads the store state we bypass on
-     mobile \u2014 hide it; the header Files action is the opener. */
+     mobile — hide it; the header Files action is the opener. */
   .aionui-floating-expand {
     display: none !important;
   }
 
   /* dsh-web-ui sidebar entries (task board / ssh) sit flush against each
-     other \u2014 give the injected rows breathing room. */
+     other — give the injected rows breathing room. */
   button[data-dsh-taskboard-entry],
   button[data-dsh-ssh-entry] {
     margin-bottom: 8px !important;
@@ -860,7 +1022,7 @@ var MOBILE_CSS = `
      (today / month / total). The counters use tabular nowrap figures whose
      min-content width overflows the ~336px panel body on a phone: figures
      clip at the row's edges and the panel grows a horizontal scrollbar.
-     Stack the three counters vertically \u2014 full-width rows, so the figures
+     Stack the three counters vertically — full-width rows, so the figures
      always fit. */
 
   [class*="usg_"][class$="_statsRow"] {
@@ -969,7 +1131,7 @@ var MOBILE_CSS = `
      The whale-girl pet (dsh-pet) floats at the viewport corner with a
      persisted, draggable position. On phones the pet is scaled down so
      it does not dominate the screen; the plugin's own drag + persist
-     still work (the position itself is left alone \u2014 the mobile default
+     still work (the position itself is left alone — the mobile default
      position is seeded via the pet API to just above the composer). */
 
   body > [class$="_float"]:has([class$="_sprite"][role="button"]) {
@@ -988,7 +1150,7 @@ var MOBILE_CSS = `
      cache) is long. The client marks the exact row with
      [data-mobile-nav="stats"] (text-anchored, hashed classes can't be
      targeted). Layout: ONE fixed-height (28px) flex strip that scrolls
-     horizontally \u2014 the full metrics stream stays reachable by swiping,
+     horizontally — the full metrics stream stays reachable by swiping,
      the row never grows vertically, no ellipsis or fade, 12px gaps
      between metric groups, a 2px scrollbar as the swipe affordance. */
 
@@ -1057,7 +1219,7 @@ var MOBILE_CSS = `
      height (2 lines on the hero empty state) on the textarea's scroll/grow
      wrappers. :placeholder-shown lets us collapse the EMPTY state to one
      line with !important; as soon as the user types, the pseudo-class no
-     longer matches and the autosizer's inline height takes over again \u2014 so
+     longer matches and the autosizer's inline height takes over again — so
      multi-line growth keeps working. */
   [data-phase="hero"] textarea:placeholder-shown {
     height: 28px !important;
