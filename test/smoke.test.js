@@ -125,3 +125,15 @@ test('client bundle contains narrow composer containment', async () => {
     'model text remains clipped for ellipsis'
   );
 });
+
+test('client bundle keeps mobile controls and stats readable without horizontal scrolling', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../client/client.js', import.meta.url), 'utf8');
+  assert.ok(src.includes('display: contents !important;'), 'composer wrappers flatten into the two responsive rows');
+  assert.ok(src.includes('order: 3 !important;'), 'model/context controls are assigned to the upper row');
+  assert.ok(src.includes('data-mobile-nav="files"'), 'desktop files marker remains available to the drawer flow');
+  assert.ok(src.includes('flex-flow: row wrap !important;'), 'stats band wraps on narrow screens');
+  assert.ok(src.includes('overflow-x: hidden !important;'), 'stats band has no horizontal scroller');
+  assert.ok(src.includes('white-space: normal !important;'), 'stats text is allowed to wrap');
+  assert.ok(!src.includes('overscroll-behavior-x: contain;'), 'old swipe-only stats behavior is removed');
+});

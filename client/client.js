@@ -548,7 +548,8 @@ var MOBILE_CSS = `
   }
   [data-composer-card] [class*="_tools"],
   [data-composer-card] [class*="_trailing"] {
-    flex: 1 1 100% !important;
+    display: contents !important;
+    flex: none !important;
     min-width: 0 !important;
     max-width: 100% !important;
   }
@@ -563,6 +564,39 @@ var MOBILE_CSS = `
   [data-composer-card] [class*="_trailing"] {
     justify-content: flex-end !important;
     overflow: visible !important;
+  }
+  /* Flatten the two generated wrapper layers so the controls can flow into
+     the same two rows. The upper row keeps add/mode/model/context; the lower
+     row keeps the device control and send button. */
+  [data-composer-card] [class*="_trailing"] > :first-child,
+  [data-composer-card] [class*="_trailing"] > :nth-child(2) {
+    display: contents !important;
+  }
+  [data-composer-card] [class*="_row"] > [class*="_tools"] > :first-child {
+    order: 1 !important;
+  }
+  [data-composer-card] [class*="_row"] > [class*="_tools"] > [class*="_modes"] {
+    order: 2 !important;
+  }
+  [data-composer-card] [class*="_trailing"] > :nth-child(2) > *,
+  [data-composer-card] [class*="_trailing"] > :first-child > :last-child {
+    order: 3 !important;
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  [data-composer-card] [class*="_trailing"] > :first-child > :last-child {
+    order: 4 !important;
+  }
+  [data-composer-card] [class*="_trailing"] > :first-child > :first-child {
+    order: 5 !important;
+    flex: 0 1 auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+  [data-composer-card] [class*="_trailing"] > :last-child {
+    order: 6 !important;
+    flex: 0 0 auto !important;
   }
   [data-composer-card] [class*="_trailing"] > * {
     min-width: 0 !important;
@@ -755,15 +789,11 @@ var MOBILE_CSS = `
     top: 12px !important;
     z-index: 2 !important;
   }
-  /* The Files action sits at the FAR RIGHT of the header so it reads as a
-     distinct control from the directory toggle on the left (which opens
-     the history sidebar). */
+  /* Windows exposes the Files action in the sidebar drawer. Keeping the
+     injected header icon here duplicates the standard-mode control and can
+     overlap it at phone width, so leave the drawer entry as the sole opener. */
   [data-mobile-nav="files"] {
-    position: absolute !important;
-    left: auto !important;
-    right: 8px !important;
-    top: 12px !important;
-    z-index: 2 !important;
+    display: none !important;
   }
   /* Session log download: gone from the header row on mobile (the utilities
      seat holds only the session-log-export capsule). */
@@ -1158,52 +1188,38 @@ var MOBILE_CSS = `
      The official session-status row (turns / steps / LLM time / TTFT /
      cache) is long. The client marks the exact row with
      [data-mobile-nav="stats"] (text-anchored, hashed classes can't be
-     targeted). Layout: ONE fixed-height (28px) flex strip that scrolls
-     horizontally \u2014 the full metrics stream stays reachable by swiping,
-     the row never grows vertically, no ellipsis or fade, 12px gaps
-     between metric groups, a 2px scrollbar as the swipe affordance. */
+     targeted). Layout: a wrapping flex band that keeps every metric visible
+     in the page instead of requiring horizontal swiping. */
 
   [data-mobile-nav="stats"] {
     display: flex !important;
-    flex-flow: row nowrap !important;
-    align-items: center !important;
+    flex-flow: row wrap !important;
+    align-items: flex-start !important;
     width: 100% !important;
     max-width: 100% !important;
     min-width: 0 !important;
-    height: 28px !important;
+    height: auto !important;
     min-height: 28px !important;
-    max-height: 28px !important;
+    max-height: none !important;
     box-sizing: border-box !important;
-    white-space: nowrap !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-x: contain;
-    scrollbar-width: thin !important;
-    scrollbar-color: var(--dsw-alias-border-l1, rgba(0, 0, 0, .28)) transparent !important;
-    padding: 0 0 4px !important;
+    white-space: normal !important;
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+    padding: 4px 0 !important;
     line-height: 20px !important;
     font-size: 12px !important;
   }
-  [data-mobile-nav="stats"]::-webkit-scrollbar {
-    height: 2px !important;
-  }
-  [data-mobile-nav="stats"]::-webkit-scrollbar-thumb {
-    background: var(--dsw-alias-label-tertiary, rgba(0, 0, 0, .3)) !important;
-    border-radius: 2px !important;
-  }
-  [data-mobile-nav="stats"]::-webkit-scrollbar-track {
-    background: transparent !important;
-  }
   [data-mobile-nav="stats"] > * {
     display: flex !important;
-    flex: 0 0 auto !important;
-    flex-flow: row nowrap !important;
-    align-items: center !important;
-    width: max-content !important;
-    min-width: max-content !important;
-    max-width: none !important;
-    white-space: nowrap !important;
+    flex: 0 1 auto !important;
+    flex-flow: row wrap !important;
+    align-items: flex-start !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
     margin-right: 12px !important;
     padding: 0 !important;
   }
@@ -1211,7 +1227,9 @@ var MOBILE_CSS = `
     margin-right: 0 !important;
   }
   [data-mobile-nav="stats"] * {
-    white-space: nowrap !important;
+    white-space: normal !important;
+    overflow-wrap: anywhere !important;
+    word-break: break-word !important;
   }
 
   /* ---------- hero composer on mobile ----------
