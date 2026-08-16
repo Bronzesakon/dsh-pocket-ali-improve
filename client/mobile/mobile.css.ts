@@ -222,7 +222,7 @@ export const MOBILE_CSS = `
   }
 
   /* Current-session crumbs can be a plain span (not the button-shaped crumb),
-     so the existing `.crumb` ellipsis rule does not reach them. */
+     so the existing crumb ellipsis rule does not reach them. */
   [data-phase] header [class*="_crumbs"],
   [data-phase] header [class*="_titleCluster"] {
     flex: 1 1 auto !important;
