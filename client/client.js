@@ -531,7 +531,7 @@ var MOBILE_CSS = `
      model pill or send control to protrude past the card. */
   [data-composer-card] {
     width: 100% !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
   [data-composer-card] [data-input-scroll],
   [data-composer-card] [class*="_grow"],
@@ -553,16 +553,16 @@ var MOBILE_CSS = `
     max-width: 100% !important;
   }
   [data-composer-card] [class*="_tools"] {
-    overflow: hidden !important;
+    overflow: visible !important;
   }
   [data-composer-card] [class*="_modes"] {
     min-width: 0 !important;
     max-width: 100% !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
   [data-composer-card] [class*="_trailing"] {
     justify-content: flex-end !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
   [data-composer-card] [class*="_trailing"] > * {
     min-width: 0 !important;
@@ -573,6 +573,15 @@ var MOBILE_CSS = `
     max-width: min(52vw, 220px) !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+  }
+  /* Dialogs opened from composer controls are positioned relative to their
+     trigger. The client measures any overhang and supplies the custom
+     property below, so a nested menu stays inside either phone edge without
+     changing its vertical anchor or clipping its own scrollable contents. */
+  [data-composer-card] [role="dialog"] {
+    box-sizing: border-box !important;
+    max-width: calc(100vw - 16px) !important;
+    translate: var(--dsh-mobile-dialog-shift-x, 0px) 0 !important;
   }
 
   /* The status band is supplemental metadata. Wrap it into bounded lines on a
@@ -1354,6 +1363,42 @@ function mobileApply(ctx) {
       observer.disconnect();
     };
   }, "dsh-mobile-nav: preview sheet open marker");
+  ctx.effect(() => {
+    const narrow = window.matchMedia("(max-width: 1023px)");
+    let frame = 0;
+    const schedule = () => {
+      if (frame !== 0) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        for (const textarea of document.querySelectorAll("[data-phase] textarea")) {
+          const card = textarea.closest('[class*="_card"]');
+          card?.setAttribute("data-composer-card", "");
+        }
+        for (const dialog of document.querySelectorAll('[data-composer-card] [role="dialog"]')) {
+          dialog.style.removeProperty("--dsh-mobile-dialog-shift-x");
+          const { left, right } = dialog.getBoundingClientRect();
+          const edge = 8;
+          const shift = left < edge ? edge - left : right > window.innerWidth - edge ? window.innerWidth - edge - right : 0;
+          dialog.style.setProperty("--dsh-mobile-dialog-shift-x", `${Math.round(shift * 100) / 100}px`);
+        }
+      });
+    };
+    const onResize = () => schedule();
+    const observer = new MutationObserver(schedule);
+    const onChange = () => schedule();
+    if (narrow.matches) schedule();
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-expanded", "aria-hidden", "open"] });
+    narrow.addEventListener("change", onChange);
+    window.addEventListener("resize", onResize);
+    document.addEventListener("click", schedule, true);
+    return () => {
+      if (frame !== 0) cancelAnimationFrame(frame);
+      observer.disconnect();
+      narrow.removeEventListener("change", onChange);
+      window.removeEventListener("resize", onResize);
+      document.removeEventListener("click", schedule, true);
+    };
+  }, "dsh-mobile-nav: composer containment");
   ctx.effect(() => {
     const narrow = window.matchMedia("(max-width: 1023px)");
     if (!narrow.matches) return () => {

@@ -140,6 +140,46 @@ export function mobileApply(ctx): void {
     }
   }, 'dsh-mobile-nav: preview sheet open marker')
 
+  // The official composer uses generated class names, so mark the card from
+  // the stable textarea relationship. The marker drives the narrow-screen
+  // layout rules and lets the dialog guard below cover plugin controls too.
+  ctx.effect(() => {
+    const narrow = window.matchMedia('(max-width: 1023px)')
+    let frame = 0
+    const schedule = (): void => {
+      if (frame !== 0) return
+      frame = requestAnimationFrame(() => {
+        frame = 0
+        for (const textarea of document.querySelectorAll<HTMLTextAreaElement>('[data-phase] textarea')) {
+          const card = textarea.closest<HTMLElement>('[class*="_card"]')
+          card?.setAttribute('data-composer-card', '')
+        }
+        for (const dialog of document.querySelectorAll<HTMLElement>('[data-composer-card] [role="dialog"]')) {
+          dialog.style.removeProperty('--dsh-mobile-dialog-shift-x')
+          const { left, right } = dialog.getBoundingClientRect()
+          const edge = 8
+          const shift = left < edge ? edge - left : right > window.innerWidth - edge ? window.innerWidth - edge - right : 0
+          dialog.style.setProperty('--dsh-mobile-dialog-shift-x', `${Math.round(shift * 100) / 100}px`)
+        }
+      })
+    }
+    const onResize = () => schedule()
+    const observer = new MutationObserver(schedule)
+    const onChange = () => schedule()
+    if (narrow.matches) schedule()
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-expanded', 'aria-hidden', 'open'] })
+    narrow.addEventListener('change', onChange)
+    window.addEventListener('resize', onResize)
+    document.addEventListener('click', schedule, true)
+    return () => {
+      if (frame !== 0) cancelAnimationFrame(frame)
+      observer.disconnect()
+      narrow.removeEventListener('change', onChange)
+      window.removeEventListener('resize', onResize)
+      document.removeEventListener('click', schedule, true)
+    }
+  }, 'dsh-mobile-nav: composer containment')
+
   // The official conversation status row (turns / steps / LLM time / TTFT /
   // cache) has a hashed class, so the stylesheet cannot target it directly.
   // Mark the exact row on narrow screens by text: a [class$=_root] that

@@ -279,7 +279,7 @@ export const MOBILE_CSS = `
      model pill or send control to protrude past the card. */
   [data-composer-card] {
     width: 100% !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
   [data-composer-card] [data-input-scroll],
   [data-composer-card] [class*="_grow"],
@@ -301,16 +301,16 @@ export const MOBILE_CSS = `
     max-width: 100% !important;
   }
   [data-composer-card] [class*="_tools"] {
-    overflow: hidden !important;
+    overflow: visible !important;
   }
   [data-composer-card] [class*="_modes"] {
     min-width: 0 !important;
     max-width: 100% !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
   [data-composer-card] [class*="_trailing"] {
     justify-content: flex-end !important;
-    overflow: hidden !important;
+    overflow: visible !important;
   }
   [data-composer-card] [class*="_trailing"] > * {
     min-width: 0 !important;
@@ -321,6 +321,15 @@ export const MOBILE_CSS = `
     max-width: min(52vw, 220px) !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+  }
+  /* Dialogs opened from composer controls are positioned relative to their
+     trigger. The client measures any overhang and supplies the custom
+     property below, so a nested menu stays inside either phone edge without
+     changing its vertical anchor or clipping its own scrollable contents. */
+  [data-composer-card] [role="dialog"] {
+    box-sizing: border-box !important;
+    max-width: calc(100vw - 16px) !important;
+    translate: var(--dsh-mobile-dialog-shift-x, 0px) 0 !important;
   }
 
   /* The status band is supplemental metadata. Wrap it into bounded lines on a

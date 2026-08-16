@@ -92,3 +92,36 @@ test('client bundle 注入 React 绑定（PR #1 回归：mobile 组件曾 React 
   const createIdx = src.indexOf('React.createElement(');
   assert.ok(injectIdx !== -1 && createIdx !== -1 && injectIdx < createIdx, 'React 声明先于使用');
 });
+
+test('client bundle contains narrow composer containment', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../client/client.js', import.meta.url), 'utf8');
+  const hasRule = (selector, declaration) => {
+    let start = -1;
+    while ((start = src.indexOf(`${selector} {`, start + 1)) !== -1) {
+      const end = src.indexOf('}', start);
+      if (end !== -1 && src.slice(start, end).includes(declaration)) return true;
+    }
+    return false;
+  };
+
+  assert.ok(src.includes('document.querySelectorAll("[data-phase] textarea")'), 'textarea relationship locates the composer card');
+  assert.ok(src.includes('setAttribute("data-composer-card", "")'), 'textarea relationship marks the composer card');
+  assert.ok(src.includes('removeProperty("--dsh-mobile-dialog-shift-x")'), 'open composer dialogs are kept inside the viewport');
+  for (const selector of [
+    '[data-composer-card]',
+    '[data-composer-card] [class*="_tools"]',
+    '[data-composer-card] [class*="_modes"]',
+    '[data-composer-card] [class*="_trailing"]'
+  ]) {
+    assert.ok(hasRule(selector, 'overflow: visible !important;'), `${selector} must not clip its dialog`);
+  }
+  assert.ok(
+    hasRule('[data-composer-card] [role="dialog"]', 'translate: var(--dsh-mobile-dialog-shift-x, 0px) 0 !important;'),
+    'dialog shift is composed separately from its existing transform'
+  );
+  assert.ok(
+    hasRule('[data-composer-card] [class*="_select"]', 'overflow: hidden !important;'),
+    'model text remains clipped for ellipsis'
+  );
+});

@@ -94,7 +94,7 @@ npx @deepseek-ai/dsh web
 | `listen EADDRINUSE ... :3081` | 旧 dsh-pocket 进程还占着端口：macOS/Linux `lsof -ti :3081 \| xargs kill -9`；Windows `netstat -ano \| findstr :3081`（找 LISTENING 的 PID）→ `taskkill /PID <PID> /F`，后重试 |
 | 版本停在 0.x 升不上去 | `^0.x` 范围不允许升到 1.x：更新用 `--latest`（`dsh plugin --profile web update dsh-pocket --latest -w`） |
 | 公网 `error 1033` | 见下方「公网隧道常见问题」——多半是本机代理/VPN（Clash 等 TUN 模式）掐断了隧道 |
-| 桌面版高级模式手机白屏 `Failed to load plugins` / `waiting for service: layout` | v1.4.8 起自动修复：桌面版 `dsh-desktop.mode: advanced` 会禁用官方布局插件，手机又被本插件强制 compatibility，两端都没有 layout 服务 → boot 失败。代理现在会把官方 `@deepseek-ai/dsh-client-ui-layout` 回插进手机页面的插件图并自托管其 bundle（**桌面端零改动**），手机恢复官方布局 + 完整移动端适配。v1.4.9 继续修复窄屏下会话标题、正文、composer 控件和状态行的横向溢出。更新到 ≥1.4.9 并重启即可 |
+| 桌面版高级模式手机白屏 `Failed to load plugins` / `waiting for service: layout` | v1.4.8 起自动修复：桌面版 `dsh-desktop.mode: advanced` 会禁用官方布局插件，手机又被本插件强制 compatibility，两端都没有 layout 服务 → boot 失败。代理现在会把官方 `@deepseek-ai/dsh-client-ui-layout` 回插进手机页面的插件图并自托管其 bundle（**桌面端零改动**），手机恢复官方布局 + 完整移动端适配。v1.4.9 修复窄屏下会话标题、正文、composer 控件和状态行的横向溢出；v1.4.10 让 composer 的工具区与模型/发送区分行，并将其一级、二级菜单收回手机视口。更新到 ≥1.4.10 并重启即可 |
 | 点「重启 dsh web」后页面提示进程在后台运行 | 自重启的新进程是 detached 后台进程（不挂终端），是页内更新的标准做法；停止它：macOS/Linux `lsof -ti :3080 \| xargs kill -9`；Windows `netstat -ano \| findstr :3080` → `taskkill /PID <PID> /F`（日志在 `$DSH_HOME` 下 `dsh-pocket-restart-*.log`） |
 
 ## ⚠️ 公网隧道常见问题（必读）
