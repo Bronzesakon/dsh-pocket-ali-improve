@@ -578,21 +578,22 @@ var MOBILE_CSS = `
   [data-composer-card] [class*="_row"] > [class*="_tools"] > [class*="_modes"] {
     order: 2 !important;
   }
-  [data-composer-card] [class*="_trailing"] > :nth-child(2) > *,
-  [data-composer-card] [class*="_trailing"] > :first-child > :last-child {
-    order: 3 !important;
-    flex: 0 1 auto !important;
-    min-width: 0 !important;
-    max-width: 100% !important;
-  }
-  [data-composer-card] [class*="_trailing"] > :first-child > :last-child {
+  /* Extensions can add controls inside the flattened wrappers. Give every
+     unclassified trailing item the context slot, then pin the two controls
+     whose row is semantically important. This avoids tying mobile order to
+     whichever plugin happened to mount first. */
+  [data-composer-card] [class*="_trailing"] > :not(:last-child),
+  [data-composer-card] [class*="_trailing"] > * > * {
     order: 4 !important;
-  }
-  [data-composer-card] [class*="_trailing"] > :first-child > :first-child {
-    order: 5 !important;
     flex: 0 1 auto !important;
     min-width: 0 !important;
     max-width: 100% !important;
+  }
+  [data-composer-card] [class*="_trailing"] :has(> button[aria-haspopup="menu"]) {
+    order: 3 !important;
+  }
+  [data-composer-card] [class*="_trailing"] :has(> .hdcp-pill) {
+    order: 5 !important;
   }
   [data-composer-card] [class*="_trailing"] > :last-child {
     order: 6 !important;

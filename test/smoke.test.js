@@ -130,7 +130,9 @@ test('client bundle keeps mobile controls and stats readable without horizontal 
   const { readFileSync } = await import('node:fs');
   const src = readFileSync(new URL('../client/client.js', import.meta.url), 'utf8');
   assert.ok(src.includes('display: contents !important;'), 'composer wrappers flatten into the two responsive rows');
-  assert.ok(src.includes('order: 3 !important;'), 'model/context controls are assigned to the upper row');
+  assert.ok(src.includes(':has(> button[aria-haspopup="menu"])'), 'the model picker has an explicit upper-row order');
+  assert.ok(src.includes(':has(> .hdcp-pill)'), 'the Harmony device control retains its lower-row order');
+  assert.ok(src.includes('> :not(:last-child),'), 'extension controls default to the context slot instead of source order');
   assert.ok(src.includes('data-mobile-nav="files"'), 'desktop files marker remains available to the drawer flow');
   assert.ok(src.includes('flex-flow: row wrap !important;'), 'stats band wraps on narrow screens');
   assert.ok(src.includes('overflow-x: hidden !important;'), 'stats band has no horizontal scroller');
