@@ -46,7 +46,7 @@ What it looks like — the phone shows the exact same UI as your computer, live:
 | 🔐 Access PIN | Public links require an **8-digit PIN** (rotated on every tunnel start by default; **customizable to a fixed PIN** — custom PINs are not rotated); LAN has its own separate **8-digit PIN** (on by default; switchable off in Settings — then LAN scans connect directly) |
 | 🔑 Custom PINs | Both the public and LAN PINs can be **set to your own fixed 8-digit number** in Settings (custom PINs are never auto-rotated) |
 | 🧘 Session persistence | Enter the PIN once and you're set for a long time (login is tied to the computer's dsh web process: as long as it stays up, the phone won't ask again; **after a dsh web restart/update, enter it once more**) |
-| ⚡ Real-time sync | Streaming output passes through WebSocket untouched — what the computer renders, the phone renders live; fully interactive both ways |
+| ⚡ Real-time sync | Streaming output passes through WebSocket untouched — what the computer renders, the phone renders live; fully interactive both ways; built-in WS heartbeat keep-alive (defeats silent NAT/battery link drops with auto-reconnect) |
 | 📱 Mobile-adaptive layout | Narrow screens get a drawer layout automatically (ported from dsh-web-mobile, MIT): sidebar drawer, full-width conversation, safe-area insets, touch optimizations |
 | 🗜️ Transfer compression | Large JSON responses are gzip/brotli'd on the fly (17MB session history → ~1MB; brotli quality 6: fast and bandwidth-friendly) — faster loads, less mobile data |
 | 🔁 Tunnel auto-restore | After a DSH restart the previously-running public tunnel comes back automatically |

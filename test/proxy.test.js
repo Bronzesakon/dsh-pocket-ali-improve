@@ -76,6 +76,47 @@ test('WebSocket upgrade：原样透传（DSH 流式通道的前提）', async ()
   }
 });
 
+test('WS 心跳（PR #41 / issue #29）：定期 Ping 保活；死链路（不回 Pong）missLimit 周期后被断开触发重连', async () => {
+  const up = await fakeUpstream();
+  const proxy = await createPocketProxy({
+    port: 0, host: '127.0.0.1',
+    upstream: { host: '127.0.0.1', port: up.port },
+    heartbeat: { intervalMs: 100, missLimit: 3 },
+  });
+  try {
+    // 1) 正常客户端（ws 库默认 autoPong 自动回 Pong）：持续收到协议层 Ping，连接保持可用
+    const ws = new WebSocket(`ws://127.0.0.1:${proxy.port}/api/events.host`, [], { headers: { Origin: 'http://x' } });
+    const pings = await new Promise((resolve, reject) => {
+      let count = 0;
+      ws.on('ping', () => count++);
+      ws.on('open', () => setTimeout(() => resolve(count), 400)); // 等 4 个心跳周期
+      ws.on('error', reject);
+    });
+    assert.ok(pings >= 2, `正常连接收到 Ping 帧（${pings}）`);
+    // 心跳不影响透传：echo 仍正常
+    const reply = await new Promise((resolve, reject) => {
+      ws.on('message', (m) => resolve(String(m)));
+      ws.on('error', reject);
+      ws.send('hello');
+      setTimeout(() => reject(new Error('echo timeout')), 2000);
+    });
+    assert.equal(reply, 'echo:hello', '心跳不影响透传');
+    ws.close();
+
+    // 2) 死链路（autoPong: false 不回 Pong、不发任何数据）→ missLimit 周期后被代理主动断开
+    const dead = new WebSocket(`ws://127.0.0.1:${proxy.port}/api/events.host`, [], { headers: { Origin: 'http://x' }, autoPong: false });
+    const closed = await new Promise((resolve) => {
+      dead.on('close', (code) => resolve(code));
+      setTimeout(() => resolve('timeout'), 2000);
+    });
+    assert.notEqual(closed, 'timeout', '死链路被代理断开（触发浏览器端重连）');
+    assert.equal(closed, 1006, 'close code 1006（异常关闭 → dsh-client-connection 重连）');
+  } finally {
+    await proxy.close();
+    await new Promise((r) => up.server.close(r));
+  }
+});
+
 test('上游未启动：返回 502 且给出提示', async () => {
   const proxy = await createPocketProxy({ port: 0, host: '127.0.0.1', upstream: { host: '127.0.0.1', port: 1 } });
   try {
