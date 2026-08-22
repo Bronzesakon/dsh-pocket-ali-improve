@@ -118,3 +118,10 @@ test('移动导航 backdrop（issue #38）：点击穿透不抢抽屉内点击 +
   assert.ok(src.includes('z-index: 600 !important'), '抽屉 z-index 600（高于 overlay 抬升 500）');
   assert.ok(!src.includes('z-index: 40 !important'), '不再用 40（会被第三方抬升的 overlay 盖住）');
 });
+
+test('公网免责声明（issue #31）：bundle 含弹框与勾选逻辑，RPC 必须带 disclaimer 确认', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../client/client.js', import.meta.url), 'utf8');
+  assert.ok(src.includes('disclaimer'), 'bundle 含免责声明逻辑');
+  assert.ok(src.includes('disclaimer: true'), '开启公网带免责声明确认参数');
+});

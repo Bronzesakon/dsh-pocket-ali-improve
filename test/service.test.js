@@ -124,7 +124,12 @@ test('RPC：status / tunnel.start / tunnel.stop / 未知端点', async () => {
   assert.ok(s1.value.lanQr.startsWith('data:qr;'), '局域网二维码 data URL');
   assert.equal(s1.value.restartNotice, null, '无重启标记时 restartNotice 为 null');
 
-  const started = await conn.handler(POCKET_ENDPOINTS.tunnelStart, {});
+  const denied = await conn.handler(POCKET_ENDPOINTS.tunnelStart, {});
+  assert.equal(denied.ok, false, '未勾选免责声明 → 拒绝开启');
+  assert.equal(denied.error.code, 'bad-request');
+  assert.ok(denied.error.message.includes('免责声明'), '提示勾选免责声明');
+
+  const started = await conn.handler(POCKET_ENDPOINTS.tunnelStart, { disclaimer: true });
   assert.equal(started.ok, true);
   assert.equal(started.value.tunnelRunning, true);
   assert.equal(started.value.tunnelUrl, 'https://abc-123.trycloudflare.com');
@@ -480,8 +485,8 @@ test('桌面端（desktop=true）：update/restart 关闭，status 带标志，�
   assert.equal(r.ok, false, '桌面端重启不可用');
   assert.match(r.error.message, /DSH Desktop/, '提示由桌面版管理');
 
-  // 正常功能（隧道）不受影响
-  const t = await conn.handler(POCKET_ENDPOINTS.tunnelStart, {});
+  // 正常功能（隧道）不受影响（同样需要免责声明确认）
+  const t = await conn.handler(POCKET_ENDPOINTS.tunnelStart, { disclaimer: true });
   assert.equal(t.ok, true, '隧道功能照常');
 
   await service.dispose();

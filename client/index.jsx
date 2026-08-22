@@ -163,17 +163,32 @@ function PocketSettingsTab({ rpcCall, t }) {
     }
   };
 
-  const startTunnel = async () => {
+  // 安全免责声明（issue #31）：每次开启公网都必须先弹框勾选「我已知情」。
+  // 服务端同样强制（tunnel.start 需 disclaimer: true），防绕过前端直接调 RPC。
+  const [disclaimerOpen, setDisclaimerOpen] = useState(false);
+  const [disclaimerChecked, setDisclaimerChecked] = useState(false);
+
+  const doStartTunnel = async () => {
     setBusy(true);
     setError(null);
     setTunnelState({ phase: 'starting', detail: '正在开启…', startedAt: Date.now() });
     try {
-      setStatus(await call(POCKET_ENDPOINTS.tunnelStart, {}));
+      setStatus(await call(POCKET_ENDPOINTS.tunnelStart, { disclaimer: true }));
     } catch (err) {
       setError(err.message);
     } finally {
       setBusy(false);
     }
+  };
+  const startTunnel = () => {
+    // 每次开启都弹免责确认（勾选后才能继续）
+    setDisclaimerChecked(false);
+    setDisclaimerOpen(true);
+  };
+  const confirmDisclaimer = () => {
+    if (!disclaimerChecked) return; // 未勾选不允许
+    setDisclaimerOpen(false);
+    doStartTunnel();
   };
 
   const stopTunnel = async () => {
@@ -362,6 +377,27 @@ function PocketSettingsTab({ rpcCall, t }) {
     ),
 
     error ? h('div', { style: { color: 'var(--dsw-alias-state-error-primary,#dc2626)', fontSize: 12, marginTop: 8 } }, `❌ ${error}`) : null,
+
+    // 安全免责声明弹框（issue #31）：每次开启公网访问前确认
+    disclaimerOpen ? h('div', { style: { position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 } },
+      h('div', { style: { background: 'var(--dsw-alias-bg-layer-1,#fff)', borderRadius: 12, maxWidth: 420, width: '100%', padding: '20px 22px', boxShadow: '0 8px 32px rgba(0,0,0,.18)' } },
+        h('div', { style: { fontWeight: 600, fontSize: 15, color: 'var(--dsw-alias-state-warn-primary,#b45309)', marginBottom: 10 } }, t('disclaimerTitle')),
+        h('div', { style: { fontSize: 13, lineHeight: 1.7, color: 'var(--dsw-alias-label-primary,inherit)' } }, t('disclaimerBody')),
+        h('label', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, fontSize: 13, cursor: 'pointer' } },
+          h('input', { type: 'checkbox', checked: disclaimerChecked, onChange: (e) => setDisclaimerChecked(e.target.checked), style: { width: 16, height: 16 } }),
+          t('disclaimerAgree'),
+        ),
+        h('div', { style: { display: 'flex', gap: 8, marginTop: 16 } },
+          h('button', { style: { ...styles.btn, flex: 1 }, onClick: () => setDisclaimerOpen(false) }, t('cancel')),
+          h('button', {
+            style: { ...styles.primary, flex: 1, opacity: disclaimerChecked ? 1 : .5 },
+            disabled: !disclaimerChecked,
+            onClick: confirmDisclaimer,
+          }, t('disclaimerAgree')),
+        ),
+        !disclaimerChecked ? h('div', { style: { marginTop: 8, fontSize: 12, color: 'var(--dsw-alias-state-error-primary,#dc2626)' } }, t('disclaimerHint')) : null,
+      ),
+    ) : null,
 
     // 页面最底部：反馈入口
     h('div', { style: { ...styles.block, textAlign: 'center' } },
