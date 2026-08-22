@@ -106,13 +106,16 @@ export const MOBILE_CSS = `
   outline-offset: 2px;
 }
 
-/* Dimmed backdrop under the open drawer; above every column, below the drawer. */
+/* Dimmed backdrop under the open drawer; above every column, below the drawer.
+   pointer-events: none —— 点击穿透（issue #38）：backdrop 只负责视觉压暗，
+   不抢点击。关闭抽屉改由 MobileNavOverlay 的 document 级「抽屉外点击」监听处理
+   （等价于原来的点击遮罩关闭，且抽屉内点击不再被 backdrop 吃掉）。 */
 [data-mobile-nav="backdrop"] {
   position: absolute;
   inset: 0;
   z-index: 30;
   background: rgba(0, 0, 0, .45);
-  cursor: pointer;
+  pointer-events: none;
   animation: dsh-mobile-nav-fade .2s var(--ds-ease-in-out, ease-in-out);
   -webkit-tap-highlight-color: transparent;
 }

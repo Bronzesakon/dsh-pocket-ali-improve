@@ -209,16 +209,22 @@ function MobileNavOverlay({ toggleSidebar, t }) {
     document.addEventListener("click", onDrawerClick, true);
     return () => document.removeEventListener("click", onDrawerClick, true);
   }, [mobile, open, toggleSidebar]);
+  (0, import_react.useEffect)(() => {
+    if (!mobile || !open) return;
+    const onOutsideClick = (event) => {
+      if (document.querySelector('[aria-modal="true"]') !== null) return;
+      const target = event.target;
+      if (target === null) return;
+      if (target.closest('[data-mobile-nav="toggle"]') !== null) return;
+      const drawer = document.querySelector('[data-mobile-nav="frame"] > :first-child');
+      if (drawer !== null && drawer.contains(target)) return;
+      toggleSidebar();
+    };
+    document.addEventListener("click", onOutsideClick, true);
+    return () => document.removeEventListener("click", onOutsideClick, true);
+  }, [mobile, open, toggleSidebar]);
   if (!mobile) return null;
-  return /* @__PURE__ */ React.createElement(React.Fragment, null, open && /* @__PURE__ */ React.createElement(
-    "div",
-    {
-      "data-mobile-nav": "backdrop",
-      role: "button",
-      "aria-label": t("backdrop"),
-      onClick: () => toggleSidebar()
-    }
-  ), fabVisible && !open && /* @__PURE__ */ React.createElement(
+  return /* @__PURE__ */ React.createElement(React.Fragment, null, open && /* @__PURE__ */ React.createElement("div", { "data-mobile-nav": "backdrop" }), fabVisible && !open && /* @__PURE__ */ React.createElement(
     "button",
     {
       type: "button",
@@ -361,13 +367,16 @@ var MOBILE_CSS = `
   outline-offset: 2px;
 }
 
-/* Dimmed backdrop under the open drawer; above every column, below the drawer. */
+/* Dimmed backdrop under the open drawer; above every column, below the drawer.
+   pointer-events: none \u2014\u2014 \u70B9\u51FB\u7A7F\u900F\uFF08issue #38\uFF09\uFF1Abackdrop \u53EA\u8D1F\u8D23\u89C6\u89C9\u538B\u6697\uFF0C
+   \u4E0D\u62A2\u70B9\u51FB\u3002\u5173\u95ED\u62BD\u5C49\u6539\u7531 MobileNavOverlay \u7684 document \u7EA7\u300C\u62BD\u5C49\u5916\u70B9\u51FB\u300D\u76D1\u542C\u5904\u7406
+   \uFF08\u7B49\u4EF7\u4E8E\u539F\u6765\u7684\u70B9\u51FB\u906E\u7F69\u5173\u95ED\uFF0C\u4E14\u62BD\u5C49\u5185\u70B9\u51FB\u4E0D\u518D\u88AB backdrop \u5403\u6389\uFF09\u3002 */
 [data-mobile-nav="backdrop"] {
   position: absolute;
   inset: 0;
   z-index: 30;
   background: rgba(0, 0, 0, .45);
-  cursor: pointer;
+  pointer-events: none;
   animation: dsh-mobile-nav-fade .2s var(--ds-ease-in-out, ease-in-out);
   -webkit-tap-highlight-color: transparent;
 }

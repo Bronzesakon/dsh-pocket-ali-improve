@@ -128,16 +128,33 @@ export function MobileNavOverlay({ toggleSidebar, t }: MobileNavOverlayProps) {
     return () => document.removeEventListener('click', onDrawerClick, true)
   }, [mobile, open, toggleSidebar])
 
+  // Tap-outside closes the drawer (issue #38). The backdrop is now
+  // pointer-events: none (pure dimming layer that never steals clicks), so
+  // "tap the dimmed area to close" moves here: any click outside the drawer
+  // (and outside the header toggle) closes it, keeping the standard
+  // interaction while letting drawer contents receive clicks normally.
+  // Capture phase: the close happens before the content processes the tap
+  // (same first-tap-closes behaviour as before).
+  useEffect(() => {
+    if (!mobile || !open) return
+    const onOutsideClick = (event: MouseEvent) => {
+      if (document.querySelector('[aria-modal="true"]') !== null) return
+      const target = event.target as HTMLElement | null
+      if (target === null) return
+      if (target.closest('[data-mobile-nav="toggle"]') !== null) return
+      const drawer = document.querySelector<HTMLElement>('[data-mobile-nav="frame"] > :first-child')
+      if (drawer !== null && drawer.contains(target)) return
+      toggleSidebar()
+    }
+    document.addEventListener('click', onOutsideClick, true)
+    return () => document.removeEventListener('click', onOutsideClick, true)
+  }, [mobile, open, toggleSidebar])
+
   if (!mobile) return null
   return (
     <>
       {open && (
-        <div
-          data-mobile-nav="backdrop"
-          role="button"
-          aria-label={t('backdrop')}
-          onClick={() => toggleSidebar()}
-        />
+        <div data-mobile-nav="backdrop" />
       )}
       {fabVisible && !open && (
         <button
