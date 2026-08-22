@@ -124,3 +124,15 @@ test('resolveCloudflared：Linux 上丢弃 Homebrew bottle 坏缓存（issue #22
   }
   await fsp.rm(home, { recursive: true, force: true });
 });
+
+test('隧道 URL 解析（issue #32）：排除 api.trycloudflare.com 保留子域', async () => {
+  const { QUICK_TUNNEL_URL_RE } = await import('../lib/tunnel.mjs');
+  // 正常隧道 URL 匹配
+  assert.match('https://abc123-def.trycloudflare.com', QUICK_TUNNEL_URL_RE);
+  // 保留子域 api 不匹配（扫码打开 api 端点会返回 code 10005 Method Not Allowed）
+  assert.doesNotMatch('https://api.trycloudflare.com', QUICK_TUNNEL_URL_RE);
+  // cloudflared 输出里 api 地址先出现时，第一个匹配必须是隧道 URL
+  const output = 'INF registering tunnel at https://api.trycloudflare.com/...\nYour quick tunnel: https://xyz789.trycloudflare.com\n';
+  const m = output.match(QUICK_TUNNEL_URL_RE);
+  assert.ok(m && m[0] === 'https://xyz789.trycloudflare.com', '不误匹配 api 地址: ' + (m && m[0]));
+});
