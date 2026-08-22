@@ -518,6 +518,89 @@ test('访问令牌按 Host 区分（issue #24）：局域网开关关闭 → 免
   }
 });
 
+test('登录速率限制（issue #40 改进版 A）：单 IP 失败达阈值锁、429 + 提示；cf-connecting-ip 独立计数；成功清空；全局锁', async () => {
+  const http = await import('node:http');
+  const TOKEN = '12345678';
+  const up = createServer((req, res) => {
+    res.writeHead(200, { 'content-type': 'text/html' });
+    res.end('<html><body>dsh</body></html>');
+  });
+  await new Promise((r) => up.listen(0, '127.0.0.1', r));
+  const makeProxy = (rateLimit) => createPocketProxy({
+    port: 0, host: '127.0.0.1',
+    upstream: { host: '127.0.0.1', port: up.address().port },
+    auth: { getToken: () => TOKEN, isProtected: () => true },
+    rateLimit,
+  });
+  const makeLogin = (p) => (ip, pin) => new Promise((resolve, reject) => {
+    const req = http.request({
+      host: '127.0.0.1', port: p, method: 'POST', path: '/pocket-login',
+      headers: { Host: 'abc.trycloudflare.com', 'Content-Type': 'application/x-www-form-urlencoded', 'cf-connecting-ip': ip },
+    }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8') }));
+    });
+    req.on('error', reject);
+    req.write('token=' + pin);
+    req.end();
+  });
+
+  // --- 实例 1：单 IP 锁（3 次/5 秒），全局阈值拉高避免干扰 ---
+  const proxy = await makeProxy({ windowMs: 60_000, maxFailures: 3, lockMs: 5_000, globalMaxFailures: 100, globalLockMs: 3_000 });
+  const login = makeLogin(proxy.port);
+  try {
+    // 1) IP-A 连续失败 3 次 → 锁定：第 4 次 429 + retry-after + 锁定文案
+    for (let i = 0; i < 3; i++) {
+      const r = await login('10.0.0.1', '00000000');
+      assert.equal(r.status, 200, `第 ${i + 1} 次失败返回登录页`);
+      assert.ok(r.body.includes('密码错误'), '错误提示');
+    }
+    const r4 = await login('10.0.0.1', '00000000');
+    assert.equal(r4.status, 429, '超过阈值被锁 429');
+    assert.ok(String(r4.headers['retry-after'] ?? '').length > 0, '带 retry-after');
+    assert.ok(r4.body.includes('尝试次数过多'), '锁定提示文案');
+
+    // 2) 不同 cf-connecting-ip 独立计数：IP-B 不受 IP-A 锁影响，可正常尝试
+    const rb1 = await login('10.0.0.2', '00000000');
+    assert.equal(rb1.status, 200, 'IP-B 未被连坐');
+
+    // 3) 成功登录清空该 IP 计数：IP-C 失败 2 次 → 正确密码成功 → 再失败 3 次才锁
+    await login('10.0.0.3', '00000000');
+    await login('10.0.0.3', '00000000');
+    const rcOk = await login('10.0.0.3', TOKEN);
+    assert.equal(rcOk.status, 302, '正确密码登录成功');
+    for (let i = 0; i < 2; i++) {
+      const r = await login('10.0.0.3', '00000000');
+      assert.equal(r.status, 200, '清空后重新计数（前 2 次失败不锁）');
+    }
+    const rc3 = await login('10.0.0.3', '00000000');
+    assert.equal(rc3.status, 200, '第 3 次失败触发锁（本次响应仍为错误提示）');
+    const rc4 = await login('10.0.0.3', '00000000');
+    assert.equal(rc4.status, 429, '清空后累计 3 次失败，下次请求被锁');
+  } finally {
+    await proxy.close();
+  }
+
+  // --- 实例 2：全局锁（3 次/3 秒）——分布式扫描（换 IP）也会被全局阈值拦下 ---
+  const proxy2 = await makeProxy({ windowMs: 60_000, maxFailures: 99, lockMs: 5_000, globalMaxFailures: 3, globalLockMs: 3_000 });
+  const login2 = makeLogin(proxy2.port);
+  try {
+    for (let i = 0; i < 2; i++) {
+      const r = await login2(`10.1.0.${i + 1}`, '00000000');
+      assert.equal(r.status, 200, `全局第 ${i + 1} 次失败正常`);
+    }
+    const r3 = await login2('10.1.0.99', '00000000'); // 第 3 个不同 IP → 触发全局锁（本次响应仍为错误提示）
+    assert.equal(r3.status, 200, '全局第 3 次失败触发锁');
+    const r4 = await login2('10.1.0.100', '00000000'); // 新 IP → 被全局锁拦下
+    assert.equal(r4.status, 429, '新 IP 也被全局锁拦截（防换 IP 绕过）');
+    assert.ok(r4.body.includes('尝试次数过多'), '全局锁提示');
+  } finally {
+    await proxy2.close();
+    await new Promise((r) => up.close(r));
+  }
+});
+
 test('advancedNoticeScript：注入 advanced 模式提示覆盖层（issue #19）', async () => {
   const { advancedNoticeScript } = await import('../lib/proxy.mjs');
   const s = advancedNoticeScript();

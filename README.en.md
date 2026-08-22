@@ -94,6 +94,7 @@ On the same page click "**Enable anywhere**" → wait for the tunnel (first run 
 - **DSH can execute code on your computer.** **LAN** QR/URL plus its own **8-digit PIN** is the key (PIN **on by default**, switchable off — then LAN scans connect directly, same-network devices only) — **never share the LAN QR, URL or PIN**.
 - **Public** access is protected by an **8-digit PIN**: the link is random, the PIN rotates on every tunnel start by default, and old links die instantly — even a leaked link can't get in. **A custom PIN is never auto-rotated** (your value stays stable).
 - Phone login state is tied to the computer's dsh web process: **no re-entry while dsh web stays up; one re-entry after a restart/update**.
+- **Login rate limiting** (anti brute-force): **5** consecutive wrong PINs from the same IP lock it for **60s**; a global failure threshold briefly locks everyone (blocks distributed IP-rotation scans); a successful login resets the counter.
 - The public URL is randomly assigned by cloudflared and **changes on every restart** (old links die automatically — a natural key rotation).
 - LAN mode exposes nothing publicly; only devices on the same network can reach it.
 - Built for personal use; the public PIN lives in `$DSH_HOME/dsh-pocket/token` (re-rolled per tunnel start unless customized), the LAN PIN in `$DSH_HOME/dsh-pocket/token-lan` (refreshed manually in Settings), and switches/custom flags in `$DSH_HOME/dsh-pocket/settings.json`.
