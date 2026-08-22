@@ -584,3 +584,62 @@ test('RPC：局域网密码独立于公网；lanTokenRefresh 刷新并返回新�
 
   await service.dispose();
 });
+
+test('WSL 局域网 IP（issue #39）：parseIpconfig 取物理网卡 IP、排除虚拟网卡；detectWsl 识别环境', async () => {
+  const { parseIpconfig, detectWsl } = await import('../lib/service.mjs');
+
+  // 中文 ipconfig 输出：物理网卡在前、虚拟网卡（vEthernet (WSL)）在后
+  const zhSample = `\u4ee5\u592a\u7f51\u9002\u914d\u5668 WLAN:
+\n\n   连接特定的 DNS 后缀 . . . . . . . :
+   本地链接 IPv6 地址. . . . . . . . : fe80::1%12
+   IPv4 地址 . . . . . . . . . . . . : 192.168.1.100
+   子网掩码  . . . . . . . . . . . . : 255.255.255.0
+   默认网关. . . . . . . . . . . . . : 192.168.1.1
+
+\u4ee5\u592a\u7f51\u9002\u914d\u5668 vEthernet (WSL (Hyper-V firewall)):
+\n\n   连接特定的 DNS 后缀 . . . . . . . :
+   IPv4 地址 . . . . . . . . . . . . : 172.26.96.1
+   子网掩码  . . . . . . . . . . . . : 255.255.255.240
+
+\u4ee5\u592a\u7f51\u9002\u914d\u5668 vEthernet (Docker NAT):
+\n\n   IPv4 地址 . . . . . . . . . . . . : 10.0.75.1
+   子网掩码  . . . . . . . . . . . . : 255.255.255.0
+`;
+  const zh = parseIpconfig(zhSample);
+  assert.deepEqual(zh, ['192.168.1.100'], '中文输出：只取物理网卡 WLAN 的 IP，排除 vEthernet(WSL/Docker)');
+
+  // 英文 ipconfig 输出
+  const enSample = `Ethernet adapter Ethernet:
+\n\n   Connection-specific DNS Suffix  . :
+   Link-local IPv6 Address . . . . . : fe80::2%4
+   IPv4 Address. . . . . . . . . . . : 192.168.50.10
+   Subnet Mask . . . . . . . . . . . : 255.255.255.0
+   Default Gateway . . . . . . . . . : 192.168.50.1
+
+Ethernet adapter vEthernet (WSL):
+\n\n   IPv4 Address. . . . . . . . . . . : 172.20.0.1
+   Subnet Mask . . . . . . . . . . . : 255.255.255.240
+`;
+  const en = parseIpconfig(enSample);
+  assert.deepEqual(en, ['192.168.50.10'], '英文输出：只取物理网卡 IP');
+
+  // 虚拟网卡在前也跳过（vEthernet 块被排除）
+  const vpnFirst = `Ethernet adapter vEthernet (WSL):
+\n\n   IPv4 Address. . . . . . . . . . . : 172.20.0.1
+
+Ethernet adapter Wi-Fi:
+\n\n   IPv4 Address. . . . . . . . . . . : 192.168.31.8
+`;
+  assert.deepEqual(parseIpconfig(vpnFirst), ['192.168.31.8'], '虚拟网卡在前也正确跳过');
+
+  // detectWsl：环境变量触发（本机 macOS 无 /proc/version，走 env 分支）
+  const prev = process.env.WSL_DISTRO_NAME;
+  process.env.WSL_DISTRO_NAME = 'Ubuntu';
+  try {
+    assert.equal(detectWsl(), true, 'WSL_DISTRO_NAME 存在 → 判定 WSL');
+  } finally {
+    if (prev === undefined) delete process.env.WSL_DISTRO_NAME;
+    else process.env.WSL_DISTRO_NAME = prev;
+  }
+  assert.equal(detectWsl(), false, '非 WSL 环境返回 false（macOS 无 /proc/version microsoft 标记）');
+});

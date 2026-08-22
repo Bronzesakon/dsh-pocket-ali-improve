@@ -41,7 +41,7 @@ What it looks like — the phone shows the exact same UI as your computer, live:
 
 | Feature | Description |
 |---|---|
-| 📶 LAN QR access | Works out of the box: Settings → Phone access — scan the LAN QR on the same Wi-Fi |
+| 📶 LAN QR access | Works out of the box: Settings → Phone access — scan the LAN QR on the same Wi-Fi (auto-detects the LAN IP; **under WSL it picks the Windows host's physical NIC IP**) |
 | 🌐 Public QR (from anywhere) | Click "Enable anywhere" → cloudflared tunnel → scan the public QR over 4G / any network |
 | 🔐 Access PIN | Public links require an **8-digit PIN** (rotated on every tunnel start by default; **customizable to a fixed PIN** — custom PINs are not rotated); LAN has its own separate **8-digit PIN** (on by default; switchable off in Settings — then LAN scans connect directly) |
 | 🔑 Custom PINs | Both the public and LAN PINs can be **set to your own fixed 8-digit number** in Settings (custom PINs are never auto-rotated) |
