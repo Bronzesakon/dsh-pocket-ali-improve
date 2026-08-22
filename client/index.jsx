@@ -196,6 +196,44 @@ function PocketSettingsTab({ rpcCall, t }) {
     } catch { /* 忽略 */ }
   };
 
+  // 自定义访问密码（issue #33）：公网/局域网各自设固定 8 位数字；自定义后公网不再自动轮换。
+  // customPin: { which: 'public'|'lan', value, err } | null —— 正在输入自定义密码的区块
+  const [customPin, setCustomPin] = useState(null);
+  const saveCustomPin = async (which) => {
+    try {
+      const r = await call(POCKET_ENDPOINTS.pinSetCustom, { which, value: customPin?.value ?? '' });
+      setStatus((s) => ({
+        ...s,
+        accessToken: which === 'public' ? r.pin : s.accessToken,
+        lanToken: which === 'lan' ? r.pin : s.lanToken,
+        publicPinCustom: which === 'public' ? true : s.publicPinCustom,
+        lanPinCustom: which === 'lan' ? true : s.lanPinCustom,
+      }));
+      setCustomPin(null);
+    } catch (err) {
+      setCustomPin((c) => ({ ...c, err: err.message }));
+    }
+  };
+  // 渲染自定义输入行（共用）：输入框 + 保存/取消
+  const customPinRow = (which) => h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', lineHeight: 1.5 } },
+    t('customizing'),
+    h('input', {
+      style: { width: 110, margin: '0 6px', padding: '4px 8px', fontSize: 14, letterSpacing: 2, textAlign: 'center', border: '1px solid var(--dsw-alias-border-l2,#d1d5db)', borderRadius: 6, outline: 'none' },
+      type: 'password',
+      inputMode: 'numeric',
+      maxLength: 8,
+      value: customPin?.value ?? '',
+      autoFocus: true,
+      onChange: (e) => setCustomPin((c) => ({ ...c, value: e.target.value.replace(/\D/g, ''), err: null })),
+      onKeyDown: (e) => { if (e.key === 'Enter') saveCustomPin(which); if (e.key === 'Escape') setCustomPin(null); },
+    }),
+    h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12, marginLeft: 2 }, onClick: () => saveCustomPin(which) }, t('save')),
+    h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12 }, onClick: () => setCustomPin(null) }, t('cancel')),
+    customPin?.err ? h('div', { style: { color: 'var(--dsw-alias-state-error-primary,#dc2626)', marginTop: 4 } }, customPin.err) : null,
+  );
+  // 「自定义」按钮（非输入态显示在密码行末尾）
+  const customBtn = (which) => h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12, marginLeft: 8 }, onClick: () => setCustomPin({ which, value: '', err: null }) }, t('customize'));
+
   const lanUrl = status?.lanUrl;
   const tunnelUrl = status?.tunnelUrl;
   const tunnelPhase = tunnelState?.phase ?? 'idle';
@@ -277,10 +315,13 @@ function PocketSettingsTab({ rpcCall, t }) {
             }, t('off')),
           ),
           status?.lanAuthEnabled !== false
-            ? h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', lineHeight: 1.5 } },
-              fmt(t, 'lanPinValue', { pin: status.lanToken }),
-              h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12, marginLeft: 8 }, onClick: refreshLanPin }, t('refresh')),
-            )
+            ? (customPin?.which === 'lan'
+                ? customPinRow('lan')
+                : h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', lineHeight: 1.5 } },
+                  fmt(t, status?.lanPinCustom ? 'lanPinCustomValue' : 'lanPinValue', { pin: status.lanToken }),
+                  h('button', { style: { ...styles.btn, height: 26, padding: '0 10px', fontSize: 12, marginLeft: 8 }, onClick: refreshLanPin }, t('refresh')),
+                  customBtn('lan'),
+                ))
             : h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-state-warn-primary,#b45309)', lineHeight: 1.5 } },
               t('lanPinOff')),
         )
@@ -296,8 +337,13 @@ function PocketSettingsTab({ rpcCall, t }) {
           h('div', { style: styles.code }, tunnelUrl),
           h('div', { style: styles.muted }, t('wanHint')),
           status.accessToken
-            ? h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', lineHeight: 1.5 } },
-              fmt(t, 'wanPin', { pin: status.accessToken }))
+            ? (customPin?.which === 'public'
+                ? customPinRow('public')
+                : h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)', lineHeight: 1.5 } },
+                  fmt(t, status?.publicPinCustom ? 'wanPinCustom' : 'wanPin', { pin: status.accessToken }),
+                  customBtn('public'),
+                  status?.publicPinCustom ? h('div', { style: { marginTop: 2, fontSize: 11, color: 'var(--dsw-alias-state-warn-primary,#b45309)' } }, t('pinCustomHint')) : null,
+                ))
             : null,
           h('button', { style: styles.btn, onClick: stopTunnel }, t('stopTunnel')),
         )

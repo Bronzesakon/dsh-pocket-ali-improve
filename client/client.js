@@ -49,7 +49,8 @@ var POCKET_ENDPOINTS = Object.freeze({
   update: "pocket.update",
   restart: "pocket.restart",
   lanTokenRefresh: "token.lanRefresh",
-  lanAuthSetEnabled: "lanAuth.setEnabled"
+  lanAuthSetEnabled: "lanAuth.setEnabled",
+  pinSetCustom: "pin.setCustom"
 });
 function compareVersions(a, b) {
   const pa = String(a).replace(/^[vV]/, "").split(".");
@@ -1323,12 +1324,20 @@ var zh2 = {
   "on": "\u5F00",
   "off": "\u5173",
   "lanPinValue": "\u{1F510} \u8BBF\u95EE\u5BC6\u7801\uFF1A{pin}\uFF08\u624B\u673A\u6253\u5F00\u9700\u8F93\u5165\uFF1B\u4E0E\u516C\u7F51\u5BC6\u7801\u5206\u5F00\uFF09",
+  "lanPinCustomValue": "\u{1F510} \u8BBF\u95EE\u5BC6\u7801\uFF1A{pin}\uFF08\u81EA\u5B9A\u4E49\uFF1B\u624B\u673A\u6253\u5F00\u9700\u8F93\u5165\uFF09",
   "refresh": "\u5237\u65B0",
+  "customize": "\u81EA\u5B9A\u4E49",
+  "customizing": "\u65B0\u5BC6\u7801\uFF088 \u4F4D\u6570\u5B57\uFF09\uFF1A",
+  "save": "\u4FDD\u5B58",
+  "cancel": "\u53D6\u6D88",
+  "pinInvalid": "\u5BC6\u7801\u5FC5\u987B\u662F 8 \u4F4D\u6570\u5B57",
+  "pinCustomHint": "\u81EA\u5B9A\u4E49\u540E\u5F00\u542F\u516C\u7F51\u4E0D\u518D\u81EA\u52A8\u6362\u65B0",
   "lanPinOff": "\u{1F513} \u5BC6\u7801\u5DF2\u5173\u95ED\uFF1A\u626B\u7801\u76F4\u8FDE\uFF0C\u65E0\u9700\u5BC6\u7801\uFF08\u4EC5\u540C\u4E00\u5C40\u57DF\u7F51\u8BBE\u5907\u53EF\u8BBF\u95EE\uFF1B\u516C\u7F51\u4ECD\u8981\u5BC6\u7801\uFF09",
   "lanStarting": "\u4EE3\u7406\u672A\u5C31\u7EEA\u2026",
   "wanTitle": "\u{1F310} \u516C\u7F51\uFF08\u4EBA\u5728\u5916\u9762\uFF09",
   "wanHint": "\u4EFB\u4F55\u7F51\u7EDC\u626B\u7801\u5373\u7528\uFF08URL \u6BCF\u6B21\u91CD\u542F\u81EA\u52A8\u6362\u65B0\uFF09",
   "wanPin": "\u{1F510} \u8BBF\u95EE\u5BC6\u7801\uFF1A{pin}\uFF08\u6BCF\u6B21\u5F00\u542F\u516C\u7F51\u53D8\u65B0\uFF1B\u624B\u673A\u6253\u5F00\u94FE\u63A5\u9700\u8F93\u5165\u6B64\u5BC6\u7801\uFF09",
+  "wanPinCustom": "\u{1F510} \u8BBF\u95EE\u5BC6\u7801\uFF1A{pin}\uFF08\u81EA\u5B9A\u4E49\uFF0C\u5F00\u542F\u516C\u7F51\u4E0D\u518D\u81EA\u52A8\u6362\u65B0\uFF09",
   "stopTunnel": "\u5173\u95ED\u516C\u7F51",
   "enable": "\u5F00\u542F\u516C\u7F51\u8BBF\u95EE",
   "opening": "\u5F00\u542F\u4E2D\u2026",
@@ -1370,12 +1379,20 @@ var en2 = {
   "on": "On",
   "off": "Off",
   "lanPinValue": "\u{1F510} PIN: {pin} (required on the phone; separate from the public PIN)",
+  "lanPinCustomValue": "\u{1F510} PIN: {pin} (custom; required on the phone)",
   "refresh": "Refresh",
+  "customize": "Customize",
+  "customizing": "New PIN (8 digits): ",
+  "save": "Save",
+  "cancel": "Cancel",
+  "pinInvalid": "PIN must be exactly 8 digits",
+  "pinCustomHint": "custom PINs are not rotated on tunnel start",
   "lanPinOff": "\u{1F513} PIN off \u2014 scan & go, no PIN (LAN devices only; public still requires PIN)",
   "lanStarting": "Proxy starting\u2026",
   "wanTitle": "\u{1F310} Anywhere (public)",
   "wanHint": "Scan from any network (the URL changes on every restart)",
   "wanPin": "\u{1F510} PIN: {pin} (changes each time the tunnel is enabled; required on the phone)",
+  "wanPinCustom": "\u{1F510} PIN: {pin} (custom \u2014 not rotated on tunnel start)",
   "stopTunnel": "Stop",
   "enable": "Enable anywhere",
   "opening": "Enabling\u2026",
@@ -1551,6 +1568,44 @@ function PocketSettingsTab({ rpcCall, t }) {
     } catch {
     }
   };
+  const [customPin, setCustomPin] = (0, import_react2.useState)(null);
+  const saveCustomPin = async (which) => {
+    try {
+      const r = await call(POCKET_ENDPOINTS.pinSetCustom, { which, value: customPin?.value ?? "" });
+      setStatus((s) => ({
+        ...s,
+        accessToken: which === "public" ? r.pin : s.accessToken,
+        lanToken: which === "lan" ? r.pin : s.lanToken,
+        publicPinCustom: which === "public" ? true : s.publicPinCustom,
+        lanPinCustom: which === "lan" ? true : s.lanPinCustom
+      }));
+      setCustomPin(null);
+    } catch (err) {
+      setCustomPin((c) => ({ ...c, err: err.message }));
+    }
+  };
+  const customPinRow = (which) => (0, import_react2.createElement)(
+    "div",
+    { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.5 } },
+    t("customizing"),
+    (0, import_react2.createElement)("input", {
+      style: { width: 110, margin: "0 6px", padding: "4px 8px", fontSize: 14, letterSpacing: 2, textAlign: "center", border: "1px solid var(--dsw-alias-border-l2,#d1d5db)", borderRadius: 6, outline: "none" },
+      type: "password",
+      inputMode: "numeric",
+      maxLength: 8,
+      value: customPin?.value ?? "",
+      autoFocus: true,
+      onChange: (e) => setCustomPin((c) => ({ ...c, value: e.target.value.replace(/\D/g, ""), err: null })),
+      onKeyDown: (e) => {
+        if (e.key === "Enter") saveCustomPin(which);
+        if (e.key === "Escape") setCustomPin(null);
+      }
+    }),
+    (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12, marginLeft: 2 }, onClick: () => saveCustomPin(which) }, t("save")),
+    (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12 }, onClick: () => setCustomPin(null) }, t("cancel")),
+    customPin?.err ? (0, import_react2.createElement)("div", { style: { color: "var(--dsw-alias-state-error-primary,#dc2626)", marginTop: 4 } }, customPin.err) : null
+  );
+  const customBtn = (which) => (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12, marginLeft: 8 }, onClick: () => setCustomPin({ which, value: "", err: null }) }, t("customize"));
   const lanUrl = status?.lanUrl;
   const tunnelUrl = status?.tunnelUrl;
   const tunnelPhase = tunnelState?.phase ?? "idle";
@@ -1640,11 +1695,12 @@ function PocketSettingsTab({ rpcCall, t }) {
             onClick: () => setLanAuth(false)
           }, t("off"))
         ),
-        status?.lanAuthEnabled !== false ? (0, import_react2.createElement)(
+        status?.lanAuthEnabled !== false ? customPin?.which === "lan" ? customPinRow("lan") : (0, import_react2.createElement)(
           "div",
           { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.5 } },
-          fmt(t, "lanPinValue", { pin: status.lanToken }),
-          (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12, marginLeft: 8 }, onClick: refreshLanPin }, t("refresh"))
+          fmt(t, status?.lanPinCustom ? "lanPinCustomValue" : "lanPinValue", { pin: status.lanToken }),
+          (0, import_react2.createElement)("button", { style: { ...styles.btn, height: 26, padding: "0 10px", fontSize: 12, marginLeft: 8 }, onClick: refreshLanPin }, t("refresh")),
+          customBtn("lan")
         ) : (0, import_react2.createElement)(
           "div",
           { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-state-warn-primary,#b45309)", lineHeight: 1.5 } },
@@ -1663,10 +1719,12 @@ function PocketSettingsTab({ rpcCall, t }) {
         (0, import_react2.createElement)("img", { src: status.tunnelQr, alt: "Tunnel QR", style: styles.qr }),
         (0, import_react2.createElement)("div", { style: styles.code }, tunnelUrl),
         (0, import_react2.createElement)("div", { style: styles.muted }, t("wanHint")),
-        status.accessToken ? (0, import_react2.createElement)(
+        status.accessToken ? customPin?.which === "public" ? customPinRow("public") : (0, import_react2.createElement)(
           "div",
           { style: { marginTop: 6, fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)", lineHeight: 1.5 } },
-          fmt(t, "wanPin", { pin: status.accessToken })
+          fmt(t, status?.publicPinCustom ? "wanPinCustom" : "wanPin", { pin: status.accessToken }),
+          customBtn("public"),
+          status?.publicPinCustom ? (0, import_react2.createElement)("div", { style: { marginTop: 2, fontSize: 11, color: "var(--dsw-alias-state-warn-primary,#b45309)" } }, t("pinCustomHint")) : null
         ) : null,
         (0, import_react2.createElement)("button", { style: styles.btn, onClick: stopTunnel }, t("stopTunnel"))
       ) : (0, import_react2.createElement)(

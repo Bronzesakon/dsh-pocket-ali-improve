@@ -412,6 +412,73 @@ test('访问令牌认证（issue #13）：公网需登录、cookie 放行、局�
   await new Promise((r) => up.close(r));
 });
 
+test('会话保持（issue #33）：登录 cookie 绑定进程 sessionKey，持久 30 天；重启后旧 cookie 失效需重新输入', async () => {
+  const http = await import('node:http');
+  const { createHash } = await import('node:crypto');
+  const TOKEN = '12345678';
+  const SK1 = 'session-key-one';
+  const SK2 = 'session-key-two';
+  const cookieOf = (pin, sk) => createHash('sha256').update(`${pin}:${sk}`).digest('hex');
+  const up = createServer((req, res) => {
+    res.writeHead(200, { 'content-type': 'text/html' });
+    res.end('<html><body>dsh</body></html>');
+  });
+  await new Promise((r) => up.listen(0, '127.0.0.1', r));
+  const proxy = await createPocketProxy({
+    port: 0, host: '127.0.0.1',
+    upstream: { host: '127.0.0.1', port: up.address().port },
+    auth: { getToken: () => TOKEN, isProtected: () => true, sessionKey: SK1 },
+  });
+  const makeRaw = (p) => (headers, method = 'GET', body, path = '/') => new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port: p, path, method, headers }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8') }));
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+  try {
+    const raw = makeRaw(proxy.port);
+    // 1) 登录 → cookie 派生绑定 sessionKey，且带 Max-Age（持久 30 天）
+    const r1 = await raw({ Host: 'abc.trycloudflare.com', 'Content-Type': 'application/x-www-form-urlencoded' }, 'POST', 'token=' + TOKEN, '/pocket-login');
+    assert.equal(r1.status, 302, '登录成功');
+    const sc = (r1.headers['set-cookie'] || []).join(';');
+    assert.ok(sc.includes('dsh_pocket_token=' + cookieOf(TOKEN, SK1)), 'cookie 绑定 sessionKey 派生');
+    assert.ok(sc.includes('Max-Age=2592000'), '持久 cookie（30 天）');
+    assert.ok(sc.includes('HttpOnly'), 'HttpOnly');
+
+    // 2) 带派生 cookie → 放行
+    const r2 = await raw({ Host: 'abc.trycloudflare.com', Accept: 'application/json', Cookie: 'dsh_pocket_token=' + cookieOf(TOKEN, SK1) }, 'GET', undefined, '/api/hello');
+    assert.equal(r2.status, 200, '正确 cookie 放行');
+
+    // 3) 旧格式 cookie（= PIN 本身）不再放行（升级后旧登录失效，需重新输入）
+    const r3 = await raw({ Host: 'abc.trycloudflare.com', Accept: 'application/json', Cookie: 'dsh_pocket_token=' + TOKEN }, 'GET', undefined, '/api/hello');
+    assert.equal(r3.status, 401, '裸 PIN cookie 已失效');
+
+    // 4) 模拟 dsh web 重启（新 sessionKey）→ 旧 cookie 失效，需重新登录；新会话 cookie 放行
+    await proxy.close();
+    const proxy2 = await createPocketProxy({
+      port: 0, host: '127.0.0.1',
+      upstream: { host: '127.0.0.1', port: up.address().port },
+      auth: { getToken: () => TOKEN, isProtected: () => true, sessionKey: SK2 },
+    });
+    try {
+      const raw2 = makeRaw(proxy2.port);
+      const r4 = await raw2({ Host: 'abc.trycloudflare.com', Accept: 'application/json', Cookie: 'dsh_pocket_token=' + cookieOf(TOKEN, SK1) }, 'GET', undefined, '/api/hello');
+      assert.equal(r4.status, 401, '重启后旧 cookie 失效（需重新输入）');
+      const r5 = await raw2({ Host: 'abc.trycloudflare.com', Accept: 'application/json', Cookie: 'dsh_pocket_token=' + cookieOf(TOKEN, SK2) }, 'GET', undefined, '/api/hello');
+      assert.equal(r5.status, 200, '新会话 cookie 放行');
+    } finally {
+      await proxy2.close();
+    }
+  } finally {
+    await proxy.close().catch(() => {});
+    await new Promise((r) => up.close(r));
+  }
+});
+
 test('访问令牌按 Host 区分（issue #24）：局域网开关关闭 → 免密直连；公网始终要密码', async () => {
   const http = await import('node:http');
   const TOKEN = '12345678';

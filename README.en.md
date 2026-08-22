@@ -43,7 +43,9 @@ What it looks like — the phone shows the exact same UI as your computer, live:
 |---|---|
 | 📶 LAN QR access | Works out of the box: Settings → Phone access — scan the LAN QR on the same Wi-Fi |
 | 🌐 Public QR (from anywhere) | Click "Enable anywhere" → cloudflared tunnel → scan the public QR over 4G / any network |
-| 🔐 Access PIN | Public links require an **8-digit PIN** (rotated every time the tunnel starts — old links die instantly); LAN has its own separate **8-digit PIN** (on by default; can be switched off in Settings — then LAN scans connect directly) |
+| 🔐 Access PIN | Public links require an **8-digit PIN** (rotated on every tunnel start by default; **customizable to a fixed PIN** — custom PINs are not rotated); LAN has its own separate **8-digit PIN** (on by default; switchable off in Settings — then LAN scans connect directly) |
+| 🔑 Custom PINs | Both the public and LAN PINs can be **set to your own fixed 8-digit number** in Settings (custom PINs are never auto-rotated) |
+| 🧘 Session persistence | Enter the PIN once and you're set for a long time (login is tied to the computer's dsh web process: as long as it stays up, the phone won't ask again; **after a dsh web restart/update, enter it once more**) |
 | ⚡ Real-time sync | Streaming output passes through WebSocket untouched — what the computer renders, the phone renders live; fully interactive both ways |
 | 📱 Mobile-adaptive layout | Narrow screens get a drawer layout automatically (ported from dsh-web-mobile, MIT): sidebar drawer, full-width conversation, safe-area insets, touch optimizations |
 | 🗜️ Transfer compression | Large JSON responses are gzip/brotli'd on the fly (17MB session history → ~1MB; brotli quality 6: fast and bandwidth-friendly) — faster loads, less mobile data |
@@ -75,23 +77,26 @@ npx @deepseek-ai/dsh web
 
 ### LAN (same Wi-Fi)
 
-Settings → **Phone access** → scan the "📶 LAN" QR code → enter the **LAN PIN** (shown in the LAN block of the settings page; hit **Refresh** to get a new one) → the phone opens the exact same DSH, in real time.
+Settings → **Phone access** → scan the "📶 LAN" QR code → enter the **LAN PIN** (shown in the LAN block; hit **Refresh** to roll a new one, or **Customize** to set your own fixed 8 digits) → the phone opens the exact same DSH, in real time.
 
 > The LAN PIN is **on by default** (security-first). If you're the only user and find typing it every time annoying, flip "LAN access PIN" to **Off** in the LAN block — LAN scans then connect directly with no PIN (LAN-only devices; the **public tunnel always requires a PIN**, unaffected).
+>
+> After logging in once, the phone **won't ask again**: as long as the computer's dsh web keeps running, reopening the phone needs no PIN (**a dsh web restart/update asks for it once more**).
 
 ### Public (from anywhere)
 
-On the same page click "**Enable anywhere**" → wait for the tunnel (first run downloads cloudflared; macOS/Linux use the Tsinghua mirror, seconds) → scan the "🌐 Public" QR code → the phone opens the link and **enters the 8-digit PIN** (shown in the settings page's public section, **rotated on every tunnel start**) → works from outside (4G / office network).
+On the same page click "**Enable anywhere**" → wait for the tunnel (first run downloads cloudflared; macOS/Linux use the Tsinghua mirror, seconds) → scan the "🌐 Public" QR code → the phone opens the link and **enters the 8-digit PIN** (shown in the settings page's public section; **rotated on every tunnel start by default**, or **Customize** it to a fixed PIN that is never rotated) → works from outside (4G / office network).
 
 > Upgrading: `dsh plugin --profile web update dsh-pocket --latest -w` (`--latest` is required across major versions — a `^0.x` range won't auto-jump to 1.x).
 
 ## ⚠️ Security (read first)
 
 - **DSH can execute code on your computer.** **LAN** QR/URL plus its own **8-digit PIN** is the key (PIN **on by default**, switchable off — then LAN scans connect directly, same-network devices only) — **never share the LAN QR, URL or PIN**.
-- **Public** access is protected by an **8-digit PIN**: the link is random, the PIN rotates on every tunnel start, and old links die instantly — even a leaked link can't get in.
+- **Public** access is protected by an **8-digit PIN**: the link is random, the PIN rotates on every tunnel start by default, and old links die instantly — even a leaked link can't get in. **A custom PIN is never auto-rotated** (your value stays stable).
+- Phone login state is tied to the computer's dsh web process: **no re-entry while dsh web stays up; one re-entry after a restart/update**.
 - The public URL is randomly assigned by cloudflared and **changes on every restart** (old links die automatically — a natural key rotation).
 - LAN mode exposes nothing publicly; only devices on the same network can reach it.
-- Built for personal use; the public PIN lives in `$DSH_HOME/dsh-pocket/token` (re-rolled on every tunnel start), the LAN PIN in `$DSH_HOME/dsh-pocket/token-lan` (refreshed manually in Settings), and the LAN-PIN switch state in `$DSH_HOME/dsh-pocket/settings.json`.
+- Built for personal use; the public PIN lives in `$DSH_HOME/dsh-pocket/token` (re-rolled per tunnel start unless customized), the LAN PIN in `$DSH_HOME/dsh-pocket/token-lan` (refreshed manually in Settings), and switches/custom flags in `$DSH_HOME/dsh-pocket/settings.json`.
 
 ## 💻 DSH Desktop
 
