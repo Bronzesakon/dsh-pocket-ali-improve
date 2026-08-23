@@ -125,3 +125,15 @@ test('公网免责声明（issue #31）：bundle 含弹框与勾选逻辑，RPC 
   assert.ok(src.includes('disclaimer'), 'bundle 含免责声明逻辑');
   assert.ok(src.includes('disclaimer: true'), '开启公网带免责声明确认参数');
 });
+
+test('文件浏览（issue #48）：宿主无 aionui explorer 时隐藏入口；点 Files 关抽屉', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../client/client.js', import.meta.url), 'utf8');
+  // 检测逻辑：frame 打 data-mobile-nav-explorer 标记
+  assert.ok(src.includes('data-mobile-nav-explorer'), '存在 explorer 可用性检测标记');
+  // 隐藏 CSS：无 explorer 时隐藏 files/explorer 入口
+  assert.ok(src.includes('[data-mobile-nav-explorer="0"] [data-mobile-nav="files"]'), '无 explorer 隐藏 header Files');
+  assert.ok(src.includes('[data-mobile-nav-explorer="0"] [data-mobile-nav="explorer"]'), '无 explorer 隐藏 drawer 入口');
+  // 点 Files 关闭抽屉（抽屉 z600 会盖住 explorer sheet，且 sheet 外点击会被吃掉）
+  assert.ok(src.includes('[data-mobile-nav="files"]'), 'Files 纳入抽屉内导航关闭');
+});

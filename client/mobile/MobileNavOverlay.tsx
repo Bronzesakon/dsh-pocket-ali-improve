@@ -119,8 +119,13 @@ export function MobileNavOverlay({ toggleSidebar, t }: MobileNavOverlayProps) {
       // menu. Tapping one must NOT count as tapping the row, or the drawer
       // would close and take the just-opened menu with it.
       if (target.closest('[class*="sessionRow"] button') !== null) return
+      // The drawer footer "Files" action opens the dsh-web-ui explorer sheet,
+      // which sits at a LOWER z-index (55) than the open drawer (600) and
+      // outside the drawer DOM — leaving the drawer open would let it cover
+      // the sheet, and tapping a sheet row would be eaten by the tap-outside
+      // close handler. Close the drawer on Files, like navigation.
       const navigates = target.closest(
-        'button[data-dsh-taskboard-entry], button[data-dsh-ssh-entry], [class*="newSession"], [class*="sessionRow"], [class*="searchResultRow"], [class*="searchResultWorkspace"]',
+        'button[data-dsh-taskboard-entry], button[data-dsh-ssh-entry], [class*="newSession"], [class*="sessionRow"], [class*="searchResultRow"], [class*="searchResultWorkspace"], [data-mobile-nav="files"]',
       )
       if (navigates !== null) toggleSidebar()
     }

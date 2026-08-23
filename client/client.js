@@ -205,7 +205,7 @@ function MobileNavOverlay({ toggleSidebar, t }) {
       if (drawer === null || !drawer.contains(target)) return;
       if (target.closest('[class*="sessionRow"] button') !== null) return;
       const navigates = target.closest(
-        'button[data-dsh-taskboard-entry], button[data-dsh-ssh-entry], [class*="newSession"], [class*="sessionRow"], [class*="searchResultRow"], [class*="searchResultWorkspace"]'
+        'button[data-dsh-taskboard-entry], button[data-dsh-ssh-entry], [class*="newSession"], [class*="sessionRow"], [class*="searchResultRow"], [class*="searchResultWorkspace"], [data-mobile-nav="files"]'
       );
       if (navigates !== null) toggleSidebar();
     };
@@ -312,6 +312,12 @@ var MOBILE_CSS = `
   display: inline-flex;
   align-items: center;
   gap: 8px;
+}
+/* \u5BBF\u4E3B\u6CA1\u6709 aionui explorer \u5217\uFF08\u5B98\u65B9 DSH \u65E0 dsh-web-ui\uFF0Cissue #48\uFF09\u65F6\u9690\u85CF
+   \u79FB\u52A8\u7AEF\u300C\u6587\u4EF6\u6D4F\u89C8\u300D\u5165\u53E3\uFF08header \u56FE\u6807 + drawer footer \u9879\uFF09\u2014\u2014\u4E0D\u7136\u70B9\u4E86\u6CA1\u53CD\u5E94\u3002 */
+[data-mobile-nav-explorer="0"] [data-mobile-nav="files"],
+[data-mobile-nav-explorer="0"] [data-mobile-nav="explorer"] {
+  display: none !important;
 }
 [data-mobile-nav="session-log"],
 [data-mobile-nav="explorer"] {
@@ -1190,6 +1196,24 @@ function mobileApply(ctx) {
     document.addEventListener("click", onChevronClick, true);
     return () => document.removeEventListener("click", onChevronClick, true);
   }, "dsh-mobile-nav: aionui explorer close marker");
+  ctx.effect(() => {
+    const narrow = window.matchMedia("(max-width: 1023px)");
+    if (!narrow.matches) return () => {
+    };
+    const frame = () => document.querySelector('[data-mobile-nav="frame"]');
+    const check = () => {
+      const has = document.querySelector("[data-aionui-explorer-col]") !== null;
+      frame()?.setAttribute("data-mobile-nav-explorer", has ? "1" : "0");
+    };
+    check();
+    const timer = window.setTimeout(check, 1500);
+    const observer = new MutationObserver(check);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => {
+      window.clearTimeout(timer);
+      observer.disconnect();
+    };
+  }, "dsh-mobile-nav: explorer availability (issue #48)");
   ctx.effect(() => {
     const narrow = window.matchMedia("(max-width: 1023px)");
     if (!narrow.matches) return () => {

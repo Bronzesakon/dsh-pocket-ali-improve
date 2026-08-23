@@ -49,6 +49,12 @@ export const MOBILE_CSS = `
   align-items: center;
   gap: 8px;
 }
+/* 宿主没有 aionui explorer 列（官方 DSH 无 dsh-web-ui，issue #48）时隐藏
+   移动端「文件浏览」入口（header 图标 + drawer footer 项）——不然点了没反应。 */
+[data-mobile-nav-explorer="0"] [data-mobile-nav="files"],
+[data-mobile-nav-explorer="0"] [data-mobile-nav="explorer"] {
+  display: none !important;
+}
 [data-mobile-nav="session-log"],
 [data-mobile-nav="explorer"] {
   display: inline-flex;

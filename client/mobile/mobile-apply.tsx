@@ -107,6 +107,31 @@ export function mobileApply(ctx): void {
     return () => document.removeEventListener('click', onChevronClick, true)
   }, 'dsh-mobile-nav: aionui explorer close marker')
 
+  // The mobile "Files" entries (header icon + drawer footer) open the
+  // dsh-web-ui **aionui explorer column** — a host-side component that plain
+  // DeepSeek Harness does NOT ship (issue #48). Without it the entries are
+  // dead buttons (they only toggle a frame attribute; nothing ever renders).
+  // Detect whether the host provides the column and mark the frame with
+  // `data-mobile-nav-explorer="1|0"` so the stylesheet can hide the entries
+  // on hosts without it (dsh-web-ui installs keep the feature).
+  ctx.effect(() => {
+    const narrow = window.matchMedia('(max-width: 1023px)')
+    if (!narrow.matches) return () => {}
+    const frame = (): HTMLElement | null => document.querySelector('[data-mobile-nav="frame"]')
+    const check = () => {
+      const has = document.querySelector('[data-aionui-explorer-col]') !== null
+      frame()?.setAttribute('data-mobile-nav-explorer', has ? '1' : '0')
+    }
+    check()
+    const timer = window.setTimeout(check, 1500) // 宿主懒渲染：稍后再查一次
+    const observer = new MutationObserver(check)
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => {
+      window.clearTimeout(timer)
+      observer.disconnect()
+    }
+  }, 'dsh-mobile-nav: explorer availability (issue #48)')
+
   // dsh-web-ui compatibility: the aionui preview column persists its open
   // tabs in localStorage and restores them on load, which would pop the
   // preview sheet over the fresh UI after a reload. Gate it like the
