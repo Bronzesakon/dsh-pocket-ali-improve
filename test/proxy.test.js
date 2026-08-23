@@ -55,6 +55,44 @@ test('HTTP：Host/Origin 被改写成 loopback 权威，响应原样返回', asy
   }
 });
 
+test('WS 上游 socket 发 RST（ECONNRESET）不崩进程（PR #49）：error 监听兜底', async () => {
+  const { createServer: createUp } = await import('node:http');
+  const { createHash } = await import('node:crypto');
+  const upSockets = [];
+  const up = createUp((req, res) => { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('ok'); });
+  up.on('upgrade', (req, socket) => {
+    upSockets.push(socket);
+    // 正常 101 握手（用标准 Sec-WebSocket-Accept 计算）
+    const accept = createHash('sha1')
+      .update(String(req.headers['sec-websocket-key'] ?? '') + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
+      .digest('base64');
+    socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + accept + '\r\n\r\n');
+  });
+  await new Promise((r) => up.listen(0, '127.0.0.1', r));
+  const proxy = await createPocketProxy({
+    port: 0, host: '127.0.0.1',
+    upstream: { host: '127.0.0.1', port: up.address().port },
+    heartbeat: false, // 排除心跳变量，专注 error 兜底
+  });
+  try {
+    const ws = new WebSocket(`ws://127.0.0.1:${proxy.port}/api/events.host`);
+    await new Promise((resolve, reject) => { ws.on('open', resolve); ws.on('error', reject); });
+
+    // 上游发 RST（resetAndDestroy 触发 ECONNRESET）——修复前 proxySocket 无 error 监听，
+    // 未处理的 error 事件会让整个 dsh web 进程崩溃退出（uncaught exception）
+    for (const s of upSockets) { try { s.resetAndDestroy?.(); } catch { s.destroy(); } }
+    await new Promise((r) => setTimeout(r, 250)); // 等 RST 传播
+
+    // 进程未崩：代理仍能服务新请求
+    const res = await fetch(`http://127.0.0.1:${proxy.port}/after`);
+    assert.equal(res.status, 200);
+    assert.equal(await res.text(), 'ok', '上游 RST 后代理进程仍存活');
+  } finally {
+    try { await proxy.close(); } catch { /* 已关 */ }
+    await new Promise((r) => up.close(r));
+  }
+});
+
 test('WebSocket upgrade：原样透传（DSH 流式通道的前提）', async () => {
   const up = await fakeUpstream();
   const proxy = await createPocketProxy({ port: 0, host: '127.0.0.1', upstream: { host: '127.0.0.1', port: up.port } });
