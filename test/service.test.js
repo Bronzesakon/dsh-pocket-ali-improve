@@ -66,6 +66,26 @@ test('selectLanIPv4：两张私网网卡时优先名称像物理网卡的接口'
   );
 });
 
+test('selectLanIPv4（issue #43）：Easytier 网卡不遮蔽改名后的物理网卡', () => {
+  assert.equal(
+    selectLanIPv4(ifaces([
+      ['et_15_x3sw', '10.126.126.1'], // Easytier P2P VPN 网卡
+      ['有线连接', '192.168.1.1'],    // 改过名的物理网卡（中文名）
+    ])),
+    '192.168.1.1',
+    'Easytier（et_ 前缀）被识别为 VPN 减分，中文物理网卡名（有线）加分',
+  );
+  // 物理网卡排在前时也不变（"无线网络连接"中文名）
+  assert.equal(
+    selectLanIPv4(ifaces([
+      ['无线网络连接', '192.168.31.8'],
+      ['et_aaa01', '10.126.126.1'],
+    ])),
+    '192.168.31.8',
+    '无线网络连接（中文物理名）优先',
+  );
+});
+
 test('selectLanIPv4：没有私网地址时回退到非回环地址（纯 VPN 环境仍可用）', () => {
   assert.equal(
     selectLanIPv4(ifaces([
