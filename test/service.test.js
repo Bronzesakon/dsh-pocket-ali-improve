@@ -769,4 +769,15 @@ Ethernet adapter WLAN:
     else process.env.WSL_DISTRO_NAME = prev;
   }
   assert.equal(detectWsl(), false, '非 WSL 环境返回 false（macOS 无 /proc/version microsoft 标记）');
+
+  // WSLENV 由 Windows Terminal 在**原生 Windows** 上也会设置（WT_SESSION 等），
+  // 不能作为 WSL 判据——回归：仅设 WSLENV 不得误判为 WSL（issue #39 误报）。
+  const prevWslEnv = process.env.WSLENV;
+  process.env.WSLENV = 'WT_SESSION:WT_PROFILE_ID:';
+  try {
+    assert.equal(detectWsl(), false, '仅 WSLENV 不判定为 WSL（Windows Terminal 误报）');
+  } finally {
+    if (prevWslEnv === undefined) delete process.env.WSLENV;
+    else process.env.WSLENV = prevWslEnv;
+  }
 });
