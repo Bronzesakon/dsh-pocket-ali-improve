@@ -42,6 +42,7 @@ What it looks like — the phone shows the exact same UI as your computer, live:
 | Feature | Description |
 |---|---|
 | 📶 LAN QR access | Works out of the box: Settings → Phone access — scan the LAN QR on the same Wi-Fi (auto-detects the LAN IP; **under WSL it picks the Windows host's physical NIC IP**) |
+| 🚪 LAN switch | **Turn LAN access off/on with one click** in Settings (a confirmation dialog shows each time): off kills the LAN QR code and link instantly; public access is unaffected |
 | 🌐 Public QR (from anywhere) | Click "Enable anywhere" → cloudflared tunnel → scan the public QR over 4G / any network |
 | 🔐 Access PIN | Public links require an **8-digit PIN** (rotated on every tunnel start by default; **customizable to a fixed PIN** — custom PINs are not rotated); LAN has its own separate **8-digit PIN** (on by default; switchable off in Settings — then LAN scans connect directly) |
 | 🔑 Custom PINs | Both the public and LAN PINs can be **set to your own fixed 8-digit number** in Settings (custom PINs are never auto-rotated) |
@@ -80,6 +81,8 @@ npx @deepseek-ai/dsh web
 
 Settings → **Phone access** → scan the "📶 LAN" QR code → enter the **LAN PIN** (shown in the LAN block; hit **Refresh** to roll a new one, or **Customize** to set your own fixed 8 digits) → the phone opens the exact same DSH, in real time.
 
+> The "**LAN access**" switch is **on by default** and can be **turned off/on with one click** (a confirmation dialog shows each time). Off kills the LAN QR code and link instantly (phones can't open them); **public access is unaffected**. Tap "On" to restore it.
+>
 > The LAN PIN is **on by default** (security-first). If you're the only user and find typing it every time annoying, flip "LAN access PIN" to **Off** in the LAN block — LAN scans then connect directly with no PIN (LAN-only devices; the **public tunnel always requires a PIN**, unaffected).
 >
 > After logging in once, the phone **won't ask again**: as long as the computer's dsh web keeps running, reopening the phone needs no PIN (**a dsh web restart/update asks for it once more**).
@@ -161,12 +164,12 @@ Such tools take over all traffic and often cut cloudflared's tunnel-edge connect
 
 | File | Purpose |
 |---|---|
-| `lib/index.js` | Plugin entry: auto-start proxy + register RPC + access-PIN management (public: 8 digits rotated per tunnel start; LAN: separate 8 digits, manually refreshable / switchable) + DSH Desktop detection |
-| `lib/settings.mjs` | Settings persistence: LAN-PIN switch (on by default) stored in `$DSH_HOME/dsh-pocket/settings.json` |
+| `lib/index.js` | Plugin entry: auto-start proxy + register RPC + access-PIN management (public: 8 digits rotated per tunnel start; LAN: separate 8 digits, manually refreshable / switchable) + LAN access switch + DSH Desktop detection |
+| `lib/settings.mjs` | Settings persistence: LAN access switch (on by default) + LAN-PIN switch (on by default) stored in `$DSH_HOME/dsh-pocket/settings.json` |
 | `lib/service.mjs` | Service: proxy lifecycle (port auto-fallback), public tunnel (auto-restore), status snapshot (with QR data URLs) |
-| `lib/proxy.mjs` | Header-rewriting reverse proxy: Host/Origin → loopback, HTTP + WebSocket passthrough + polyfill injection + gzip/brotli compression + per-host token auth (public always; LAN per switch) |
+| `lib/proxy.mjs` | Header-rewriting reverse proxy: Host/Origin → loopback, HTTP + WebSocket passthrough + polyfill injection + gzip/brotli compression + per-host token auth (public always; LAN per switch) + blocks LAN Hosts when LAN is off |
 | `lib/tunnel.mjs` | cloudflared: multi-mirror download (Tsinghua first) / adaptive parallel / start / parse public URL (HTTP/2) |
-| `lib/web-rpc.js` | Loopback RPC: `status` / `tunnel.start` / `tunnel.stop` / `version` / `update` / `restart` |
+| `lib/web-rpc.js` | Loopback RPC: `status` / `tunnel.start` / `tunnel.stop` / `lan.setEnabled` / `version` / `update` / `restart` |
 | `client/` | "Phone access" settings tab + mobile adaptation (dsh-web-mobile port) |
 | `bin/dsh-pocket.mjs` | CLI: LAN/public modes, prints URL + QR |
 

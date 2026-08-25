@@ -51,6 +51,7 @@ var POCKET_ENDPOINTS = Object.freeze({
   lanTokenRefresh: "token.lanRefresh",
   lanAuthSetEnabled: "lanAuth.setEnabled",
   lanSetOverride: "lan.setOverride",
+  lanSetEnabled: "lan.setEnabled",
   pinSetCustom: "pin.setCustom"
 });
 function compareVersions(a, b) {
@@ -1364,6 +1365,13 @@ var zh2 = {
   "versionRange": "\u5F53\u524D v{cur} \u2192 \u6700\u65B0 v{latest}",
   "lanTitle": "\u{1F4F6} \u5C40\u57DF\u7F51\uFF08\u540C\u4E00 WiFi\uFF09",
   "lanHint": "\u624B\u673A\u8FDE\u63A5\u540C\u4E00 WiFi \u540E\u626B\u7801\u5373\u53EF\u6253\u5F00",
+  "lanAccess": "\u5C40\u57DF\u7F51\u8BBF\u95EE",
+  "lanDisabledHint": "\u{1F512} \u5C40\u57DF\u7F51\u8BBF\u95EE\u5DF2\u5173\u95ED\uFF1A\u624B\u673A\u626B\u7801/\u94FE\u63A5\u5747\u4E0D\u53EF\u7528\uFF08\u516C\u7F51\u4E0D\u53D7\u5F71\u54CD\uFF09\u3002\u70B9\u300C\u5F00\u300D\u6062\u590D\u3002",
+  "lanToggleTitleOff": "\u5173\u95ED\u5C40\u57DF\u7F51\u8BBF\u95EE",
+  "lanToggleBodyOff": "\u5173\u95ED\u540E\uFF0C\u540C\u4E00 WiFi \u4E0B\u7684\u624B\u673A\u5C06\u65E0\u6CD5\u626B\u7801\u8BBF\u95EE\uFF08\u5C40\u57DF\u7F51\u4E8C\u7EF4\u7801/\u94FE\u63A5\u7ACB\u5373\u5931\u6548\uFF09\u3002\u516C\u7F51\u8BBF\u95EE\u4E0D\u53D7\u5F71\u54CD\u3002\u786E\u5B9A\u5173\u95ED\uFF1F",
+  "lanToggleTitleOn": "\u5F00\u542F\u5C40\u57DF\u7F51\u8BBF\u95EE",
+  "lanToggleBodyOn": "\u5F00\u542F\u540E\uFF0C\u540C\u4E00 WiFi \u7684\u624B\u673A\u626B\u7801\u5373\u53EF\u8BBF\u95EE\uFF08\u9ED8\u8BA4\u9700\u8F93\u5165\u5C40\u57DF\u7F51\u5BC6\u7801\uFF09\u3002\u786E\u5B9A\u5F00\u542F\uFF1F",
+  "confirm": "\u786E\u5B9A",
   "lanAddress": "\u5C40\u57DF\u7F51\u5730\u5740",
   "lanAddressAuto": "\u81EA\u52A8\uFF08\u63A8\u8350\uFF09",
   "lanAddressHint": "\u9AD8\u7EA7\u9009\u9879\uFF1A\u4E00\u822C\u4E0D\u9700\u8981\u4FEE\u6539\uFF1B\u4F7F\u7528 Tailscale/VPN \u7B49\u8FDC\u7A0B\u8BBF\u95EE\u65F6\u53EF\u624B\u52A8\u9009\u62E9",
@@ -1426,6 +1434,13 @@ var en2 = {
   "versionRange": "Current v{cur} \u2192 latest v{latest}",
   "lanTitle": "\u{1F4F6} LAN (same Wi-Fi)",
   "lanHint": "Scan to open once your phone is on the same Wi-Fi",
+  "lanAccess": "LAN access",
+  "lanDisabledHint": '\u{1F512} LAN access is off \u2014 the QR code and link are unavailable (public access is unaffected). Tap "On" to restore.',
+  "lanToggleTitleOff": "Turn off LAN access",
+  "lanToggleBodyOff": "Once off, phones on the same Wi-Fi can no longer scan to connect (the LAN QR code and link stop working immediately). Public access is unaffected. Turn it off?",
+  "lanToggleTitleOn": "Turn on LAN access",
+  "lanToggleBodyOn": "Once on, phones on the same Wi-Fi can scan to connect (a LAN PIN is required by default). Turn it on?",
+  "confirm": "Confirm",
   "lanAddress": "LAN address",
   "lanAddressAuto": "Auto (recommended)",
   "lanAddressHint": "Advanced option: usually no change needed; select manually when accessing through Tailscale/VPN",
@@ -1637,6 +1652,19 @@ function PocketSettingsTab({ rpcCall, t }) {
     } catch {
     }
   };
+  const [lanToggleOpen, setLanToggleOpen] = (0, import_react2.useState)(null);
+  const requestLanToggle = (on) => setLanToggleOpen(on);
+  const confirmLanToggle = async () => {
+    const on = lanToggleOpen;
+    setLanToggleOpen(null);
+    if (on === null) return;
+    try {
+      const r = await call(POCKET_ENDPOINTS.lanSetEnabled, { on });
+      setStatus((s) => ({ ...s, lanEnabled: r.lanEnabled }));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
   const setLanAddress = async (ip) => {
     try {
       setStatus(await call(POCKET_ENDPOINTS.lanSetOverride, { ip }));
@@ -1751,7 +1779,21 @@ function PocketSettingsTab({ rpcCall, t }) {
       "div",
       { style: styles.block },
       (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 13 } }, t("lanTitle")),
-      lanUrl ? (0, import_react2.createElement)(
+      // 局域网访问总开关：关闭后扫码/链接直接失效（公网不受影响）
+      (0, import_react2.createElement)(
+        "div",
+        { style: { display: "flex", alignItems: "center", gap: 8, marginTop: 8 } },
+        (0, import_react2.createElement)("span", { style: { fontSize: 12, color: "var(--dsw-alias-label-secondary,#6b7280)" } }, t("lanAccess")),
+        (0, import_react2.createElement)("button", {
+          style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: status?.lanEnabled !== false ? 600 : 400, background: status?.lanEnabled !== false ? "var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))" : "var(--dsw-alias-bg-layer-1,#fff)", color: status?.lanEnabled !== false ? "var(--dsw-alias-label-primary-foreground, #fff)" : "var(--dsw-alias-label-primary,inherit)" },
+          onClick: () => requestLanToggle(true)
+        }, t("on")),
+        (0, import_react2.createElement)("button", {
+          style: { ...styles.btn, height: 28, padding: "0 12px", fontSize: 12, fontWeight: status?.lanEnabled === false ? 600 : 400, background: status?.lanEnabled === false ? "var(--dsw-alias-state-error-primary,#dc2626)" : "var(--dsw-alias-bg-layer-1,#fff)", color: status?.lanEnabled === false ? "#fff" : "var(--dsw-alias-label-primary,inherit)" },
+          onClick: () => requestLanToggle(false)
+        }, t("off"))
+      ),
+      status?.lanEnabled === false ? (0, import_react2.createElement)("div", { style: { marginTop: 8, fontSize: 12, color: "var(--dsw-alias-state-warn-primary,#b45309)", lineHeight: 1.5 } }, t("lanDisabledHint")) : lanUrl ? (0, import_react2.createElement)(
         "div",
         null,
         (0, import_react2.createElement)("img", { src: status.lanQr, alt: "LAN QR", style: styles.qr }),
@@ -1835,6 +1877,23 @@ function PocketSettingsTab({ rpcCall, t }) {
       )
     ),
     error ? (0, import_react2.createElement)("div", { style: { color: "var(--dsw-alias-state-error-primary,#dc2626)", fontSize: 12, marginTop: 8 } }, `\u274C ${error}`) : null,
+    // 局域网访问开关确认弹框（关闭/打开时弹窗提醒）
+    lanToggleOpen !== null ? (0, import_react2.createElement)(
+      "div",
+      { style: { position: "fixed", inset: 0, zIndex: 1e4, background: "rgba(0,0,0,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
+      (0, import_react2.createElement)(
+        "div",
+        { style: { background: "var(--dsw-alias-bg-layer-1,#fff)", borderRadius: 12, maxWidth: 420, width: "100%", padding: "20px 22px", boxShadow: "0 8px 32px rgba(0,0,0,.18)" } },
+        (0, import_react2.createElement)("div", { style: { fontWeight: 600, fontSize: 15, color: lanToggleOpen ? "var(--dsw-alias-brand-primary,#4f6ef7)" : "var(--dsw-alias-state-warn-primary,#b45309)", marginBottom: 10 } }, t(lanToggleOpen ? "lanToggleTitleOn" : "lanToggleTitleOff")),
+        (0, import_react2.createElement)("div", { style: { fontSize: 13, lineHeight: 1.7, color: "var(--dsw-alias-label-primary,inherit)" } }, t(lanToggleOpen ? "lanToggleBodyOn" : "lanToggleBodyOff")),
+        (0, import_react2.createElement)(
+          "div",
+          { style: { display: "flex", gap: 8, marginTop: 16 } },
+          (0, import_react2.createElement)("button", { style: { ...styles.btn, flex: 1 }, onClick: () => setLanToggleOpen(null) }, t("cancel")),
+          (0, import_react2.createElement)("button", { style: { ...styles.primary, flex: 1 }, onClick: confirmLanToggle }, t("confirm"))
+        )
+      )
+    ) : null,
     // 安全免责声明弹框（issue #31）：每次开启公网访问前确认
     disclaimerOpen ? (0, import_react2.createElement)(
       "div",

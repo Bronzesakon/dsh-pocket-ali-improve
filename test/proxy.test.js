@@ -653,6 +653,58 @@ test('访问令牌按 Host 区分（issue #24）：局域网开关关闭 → 免
   }
 });
 
+test('局域网访问总开关：关闭后拦截局域网 Host（403 提示页），loopback 与公网放行', async () => {
+  const http = await import('node:http');
+  const up = createServer((req, res) => {
+    res.writeHead(200, { 'content-type': 'text/html' });
+    res.end('<html><body>dsh</body></html>');
+  });
+  await new Promise((r) => up.listen(0, '127.0.0.1', r));
+
+  let lanOn = true;
+  const proxy = await createPocketProxy({
+    port: 0, host: '127.0.0.1',
+    upstream: { host: '127.0.0.1', port: up.address().port },
+    lanAccessEnabled: () => lanOn,
+  });
+  const raw = (host, accept = 'text/html', path = '/') => new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port: proxy.port, path, headers: { Host: host, Accept: accept } }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve({ status: res.statusCode, body: Buffer.concat(chunks).toString('utf8') }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+
+  try {
+    // 1) 开启：局域网 Host 正常放行
+    const on = await raw('192.168.1.50:3081');
+    assert.equal(on.status, 200, '开启时局域网放行');
+    assert.ok(on.body.includes('dsh'), '内容正常');
+
+    // 2) 关闭：局域网 Host 被拦截（浏览器导航 → 403 提示页）
+    lanOn = false;
+    const off = await raw('192.168.1.50:3081');
+    assert.equal(off.status, 403, '关闭时局域网拒绝');
+    assert.ok(off.body.includes('局域网访问已关闭'), '返回提示页');
+
+    // 3) 关闭：局域网 API 路径 → 403 JSON
+    const offApi = await raw('192.168.1.50:3081', 'application/json', '/api/hello');
+    assert.equal(offApi.status, 403, 'API 返回 403');
+    assert.equal(offApi.body, '{"error":"lan-disabled"}', 'JSON 错误体');
+
+    // 4) 关闭：loopback 与公网（trycloudflare）不受影响
+    const loop = await raw('127.0.0.1:3081');
+    assert.equal(loop.status, 200, 'loopback 放行');
+    const pub = await raw('abc.trycloudflare.com');
+    assert.equal(pub.status, 200, '公网放行');
+  } finally {
+    await proxy.close();
+    await new Promise((r) => up.close(r));
+  }
+});
+
 test('登录速率限制（issue #40 改进版 A）：单 IP 失败达阈值锁、429 + 提示；cf-connecting-ip 独立计数；成功清空；全局锁', async () => {
   const http = await import('node:http');
   const TOKEN = '12345678';

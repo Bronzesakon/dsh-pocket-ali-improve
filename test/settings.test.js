@@ -19,6 +19,21 @@ async function withHome(fn) {
   }
 }
 
+test('局域网访问总开关默认开启（无配置文件）', () => withHome(async () => {
+  const { lanEnabled } = await import('../lib/settings.mjs');
+  assert.equal(lanEnabled(), true, '默认开启');
+}));
+
+test('局域网访问总开关：关闭 → 持久化到 settings.json，重新读取仍为关闭；可再开', () => withHome(async () => {
+  const { lanEnabled, setLanEnabled, settingsPath } = await import('../lib/settings.mjs');
+  assert.equal(setLanEnabled(false), false, '返回关闭状态');
+  assert.equal(lanEnabled(), false, '立即生效（每次读磁盘）');
+  const raw = JSON.parse(readFileSync(settingsPath(), 'utf8'));
+  assert.equal(raw.lanEnabled, false, 'settings.json 内容正确');
+  assert.equal(setLanEnabled(true), true, '重新开启');
+  assert.equal(lanEnabled(), true, '开启生效');
+}));
+
 test('局域网密码开关默认开启（无配置文件）', () => withHome(async () => {
   const { lanAuthEnabled } = await import('../lib/settings.mjs');
   assert.equal(lanAuthEnabled(), true, '默认开启');

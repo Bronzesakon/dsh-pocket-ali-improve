@@ -227,6 +227,35 @@ test('RPC：lan.setOverride 设置/清除覆盖地址，非法 IP 被拒绝', as
   await service.dispose();
 });
 
+test('RPC：lan.setEnabled 设置局域网访问总开关并回写到 status', async () => {
+  const internals = stubInternals();
+  let lanOn = true;
+  const service = createPocketService({ dshPort: 3080, port: 3081, internals, getLanEnabled: () => lanOn });
+  const conn = fakeCtxConnection();
+  installPocketRpc({ connection: conn }, {
+    service,
+    getLanEnabled: () => lanOn,
+    setLanEnabled: (on) => { lanOn = on === true; return lanOn; },
+    log: { error() {}, warn() {} },
+  });
+  await service.startProxy();
+
+  const s1 = await conn.handler(POCKET_ENDPOINTS.status, {});
+  assert.equal(s1.ok, true);
+  assert.equal(s1.value.lanEnabled, true, '默认开启');
+
+  const off = await conn.handler(POCKET_ENDPOINTS.lanSetEnabled, { on: false });
+  assert.equal(off.ok, true);
+  assert.equal(off.value.lanEnabled, false, '关闭成功');
+  assert.equal((await conn.handler(POCKET_ENDPOINTS.status, {})).value.lanEnabled, false, 'status 反映关闭');
+
+  const on = await conn.handler(POCKET_ENDPOINTS.lanSetEnabled, { on: true });
+  assert.equal(on.ok, true);
+  assert.equal(on.value.lanEnabled, true, '重新开启');
+
+  await service.dispose();
+});
+
 test('RPC：status 携带重启提示（restartNotice）', async () => {
   const internals = stubInternals();
   const service = createPocketService({ dshPort: 3080, port: 3081, internals });

@@ -211,6 +211,22 @@ function PocketSettingsTab({ rpcCall, t }) {
     } catch { /* 忽略 */ }
   };
 
+  // 局域网访问总开关：关闭后局域网扫码/链接直接失效（公网不受影响）。
+  // 切换前弹窗确认（弹窗提醒）；服务端用 setLanEnabled 持久化，代理按 Host 实时拦截。
+  const [lanToggleOpen, setLanToggleOpen] = useState(null); // null | true | false（目标 on 状态）
+  const requestLanToggle = (on) => setLanToggleOpen(on);
+  const confirmLanToggle = async () => {
+    const on = lanToggleOpen;
+    setLanToggleOpen(null);
+    if (on === null) return;
+    try {
+      const r = await call(POCKET_ENDPOINTS.lanSetEnabled, { on });
+      setStatus((s) => ({ ...s, lanEnabled: r.lanEnabled }));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   // 局域网地址手动覆盖（Tailscale/VPN 等远程访问场景）：空值恢复自动选择
   const setLanAddress = async (ip) => {
     try {
@@ -321,8 +337,22 @@ function PocketSettingsTab({ rpcCall, t }) {
     // 局域网
     h('div', { style: styles.block },
       h('div', { style: { fontWeight: 600, fontSize: 13 } }, t('lanTitle')),
-      lanUrl
-        ? h('div', null,
+      // 局域网访问总开关：关闭后扫码/链接直接失效（公网不受影响）
+      h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 } },
+        h('span', { style: { fontSize: 12, color: 'var(--dsw-alias-label-secondary,#6b7280)' } }, t('lanAccess')),
+        h('button', {
+          style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, fontWeight: status?.lanEnabled !== false ? 600 : 400, background: status?.lanEnabled !== false ? 'var(--dsw-alias-button-primary-fill, var(--dsw-alias-brand-primary,#4f6ef7))' : 'var(--dsw-alias-bg-layer-1,#fff)', color: status?.lanEnabled !== false ? 'var(--dsw-alias-label-primary-foreground, #fff)' : 'var(--dsw-alias-label-primary,inherit)' },
+          onClick: () => requestLanToggle(true),
+        }, t('on')),
+        h('button', {
+          style: { ...styles.btn, height: 28, padding: '0 12px', fontSize: 12, fontWeight: status?.lanEnabled === false ? 600 : 400, background: status?.lanEnabled === false ? 'var(--dsw-alias-state-error-primary,#dc2626)' : 'var(--dsw-alias-bg-layer-1,#fff)', color: status?.lanEnabled === false ? '#fff' : 'var(--dsw-alias-label-primary,inherit)' },
+          onClick: () => requestLanToggle(false),
+        }, t('off')),
+      ),
+      status?.lanEnabled === false
+        ? h('div', { style: { marginTop: 8, fontSize: 12, color: 'var(--dsw-alias-state-warn-primary,#b45309)', lineHeight: 1.5 } }, t('lanDisabledHint'))
+        : (lanUrl
+          ? h('div', null,
           h('img', { src: status.lanQr, alt: 'LAN QR', style: styles.qr }),
           h('div', { style: styles.code }, lanUrl),
           h('div', { style: styles.muted }, t('lanHint')),
@@ -360,8 +390,8 @@ function PocketSettingsTab({ rpcCall, t }) {
                 ))
             : h('div', { style: { marginTop: 6, fontSize: 12, color: 'var(--dsw-alias-state-warn-primary,#b45309)', lineHeight: 1.5 } },
               t('lanPinOff')),
-        )
-        : h('div', { style: styles.muted }, t('lanStarting')),
+          )
+          : h('div', { style: styles.muted }, t('lanStarting'))),
     ),
 
     // 公网
@@ -398,6 +428,18 @@ function PocketSettingsTab({ rpcCall, t }) {
     ),
 
     error ? h('div', { style: { color: 'var(--dsw-alias-state-error-primary,#dc2626)', fontSize: 12, marginTop: 8 } }, `❌ ${error}`) : null,
+
+    // 局域网访问开关确认弹框（关闭/打开时弹窗提醒）
+    lanToggleOpen !== null ? h('div', { style: { position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 } },
+      h('div', { style: { background: 'var(--dsw-alias-bg-layer-1,#fff)', borderRadius: 12, maxWidth: 420, width: '100%', padding: '20px 22px', boxShadow: '0 8px 32px rgba(0,0,0,.18)' } },
+        h('div', { style: { fontWeight: 600, fontSize: 15, color: lanToggleOpen ? 'var(--dsw-alias-brand-primary,#4f6ef7)' : 'var(--dsw-alias-state-warn-primary,#b45309)', marginBottom: 10 } }, t(lanToggleOpen ? 'lanToggleTitleOn' : 'lanToggleTitleOff')),
+        h('div', { style: { fontSize: 13, lineHeight: 1.7, color: 'var(--dsw-alias-label-primary,inherit)' } }, t(lanToggleOpen ? 'lanToggleBodyOn' : 'lanToggleBodyOff')),
+        h('div', { style: { display: 'flex', gap: 8, marginTop: 16 } },
+          h('button', { style: { ...styles.btn, flex: 1 }, onClick: () => setLanToggleOpen(null) }, t('cancel')),
+          h('button', { style: { ...styles.primary, flex: 1 }, onClick: confirmLanToggle }, t('confirm')),
+        ),
+      ),
+    ) : null,
 
     // 安全免责声明弹框（issue #31）：每次开启公网访问前确认
     disclaimerOpen ? h('div', { style: { position: 'fixed', inset: 0, zIndex: 10000, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 } },

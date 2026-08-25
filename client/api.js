@@ -11,6 +11,7 @@ export const POCKET_ENDPOINTS = Object.freeze({
   lanTokenRefresh: 'token.lanRefresh',
   lanAuthSetEnabled: 'lanAuth.setEnabled',
   lanSetOverride: 'lan.setOverride',
+  lanSetEnabled: 'lan.setEnabled',
   pinSetCustom: 'pin.setCustom',
 });
 
