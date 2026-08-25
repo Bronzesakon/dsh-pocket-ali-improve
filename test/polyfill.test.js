@@ -1,6 +1,7 @@
 // 代理注入的浏览器 polyfill（RANDOM_UUID_POLYFILL）行为测试：
 // 1. crypto.randomUUID（非安全上下文缺失时安装）
 // 2. AbortSignal.any（issue #53：Android 厂商浏览器/WebView 无原生实现时安装）
+// 3. let location 遮蔽 + Proxy 伪装 hostname（issue #58：局域网 settings isLoopback）
 // 用 node:vm 模拟浏览器全局执行脚本字符串（self 指向 node 全局，删除原生 any 模拟缺失）。
 
 import { test } from 'node:test';
@@ -8,6 +9,11 @@ import assert from 'node:assert/strict';
 import { runInNewContext } from 'node:vm';
 
 const { RANDOM_UUID_POLYFILL } = await import('../lib/proxy.mjs');
+
+/** 提取 script 体（vm 只接受纯 JS）。 */
+function polyfillJs() {
+  return RANDOM_UUID_POLYFILL.match(/<script[^>]*>([\s\S]*)<\/script>/)?.[1] ?? RANDOM_UUID_POLYFILL;
+}
 
 test('polyfill：注入内容带判重标记，且包含 AbortSignal.any 与 randomUUID 两个补丁', () => {
   assert.ok(RANDOM_UUID_POLYFILL.includes('data-dsh-pocket-polyfill="1"'), '带注入判重标记');
@@ -18,9 +24,13 @@ test('polyfill：注入内容带判重标记，且包含 AbortSignal.any 与 ran
 /** 在模拟浏览器上下文里执行 polyfill 脚本（self = node 全局，能访问 AbortSignal 等）。
  *  RANDOM_UUID_POLYFILL 是完整 <script> 标签，vm 只接受纯 JS——先提取 script 体。 */
 function runPolyfill() {
-  const js = RANDOM_UUID_POLYFILL.match(/<script[^>]*>([\s\S]*)<\/script>/)?.[1] ?? RANDOM_UUID_POLYFILL;
-  const context = { self: globalThis, AbortController, AbortSignal, Uint8Array, Array, String, setTimeout, clearTimeout };
+  const js = polyfillJs();
+  const context = {
+    self: globalThis, AbortController, AbortSignal, Uint8Array, Array, String, setTimeout, clearTimeout,
+    window: { location: { hostname: '192.168.1.50', origin: 'http://192.168.1.50:3081', search: '', href: 'http://192.168.1.50:3081/', reload: () => 'reloaded', assign() {}, replace() {} } },
+  };
   runInNewContext(js, context);
+  return context;
 }
 
 test('polyfill：原生 AbortSignal.any 存在时不覆盖', () => {
@@ -81,4 +91,28 @@ test('polyfill：randomUUID 在缺失时安装（非安全上下文场景）', (
   } finally {
     crypto.randomUUID = orig;
   }
+});
+
+test('polyfill（issue #58）：let location 遮蔽 + Proxy 伪装 hostname——局域网访问 settings isLoopback 放行', () => {
+  const fakeLocation = {
+    hostname: '192.168.1.50', origin: 'http://192.168.1.50:3081', search: '?x=1',
+    href: 'http://192.168.1.50:3081/', reload: () => 'reloaded', assign() {}, replace() {},
+  };
+  const context = {
+    self: globalThis, AbortController, AbortSignal, Uint8Array, Array, String, setTimeout, clearTimeout,
+    Proxy, Object, window: { location: fakeLocation },
+  };
+  runInNewContext(polyfillJs(), context);
+  // 自由变量 location 被 let 词法绑定遮蔽 → hostname 伪装成 loopback
+  const probe = runInNewContext(
+    '({ hostname: location.hostname, search: location.search, origin: location.origin, '
+    + 'reloadOk: (function(){ try { return location.reload(); } catch (e) { return "ERR:" + e.message; } })() })',
+    context,
+  );
+  assert.equal(probe.hostname, '127.0.0.1', 'hostname 伪装 loopback（DSH isLoopback 判定放行）');
+  assert.equal(probe.search, '?x=1', '其他属性转发真实 location');
+  assert.equal(probe.origin, 'http://192.168.1.50:3081', 'origin 转发真实');
+  assert.equal(probe.reloadOk, 'reloaded', '平台方法 bind 后可用（brand check 不崩）');
+  // globalThis.location 路径（DSH resolveBase 用）不受遮蔽影响
+  assert.equal(context.window.location.hostname, '192.168.1.50', 'window.location 仍为真实（API 基址不受影响）');
 });
