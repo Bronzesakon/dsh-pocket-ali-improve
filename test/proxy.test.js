@@ -93,6 +93,62 @@ test('WS 上游 socket 发 RST（ECONNRESET）不崩进程（PR #49）：error �
   }
 });
 
+test('WS 半开连接（PR #56）：客户端直接 FIN（不发 close 帧）→ 两端被销毁，连接槽不泄漏', async () => {
+  const { createServer: createUp } = await import('node:http');
+  const { createHash } = await import('node:crypto');
+  const { connect: netConnect } = await import('node:net');
+  const upSockets = [];
+  const up = createUp((req, res) => { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('ok'); });
+  up.on('upgrade', (req, socket) => {
+    upSockets.push(socket);
+    const accept = createHash('sha1')
+      .update(String(req.headers['sec-websocket-key'] ?? '') + '258EAFA5-E914-47DA-95CA-C5AB0DC85B11')
+      .digest('base64');
+    socket.write('HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ' + accept + '\r\n\r\n');
+  });
+  await new Promise((r) => up.listen(0, '127.0.0.1', r));
+  const proxy = await createPocketProxy({
+    port: 0, host: '127.0.0.1',
+    upstream: { host: '127.0.0.1', port: up.address().port },
+    heartbeat: false,
+  });
+  try {
+    // 客户端：net 裸连接完成 WS 握手（不用 ws 库，方便直接发 FIN 而不发 close 帧）
+    const client = await new Promise((resolve, reject) => {
+      const sock = netConnect(proxy.port, '127.0.0.1', () => {
+        sock.write(
+          'GET /api/events.host HTTP/1.1\r\nHost: x\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n' +
+          'Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n',
+        );
+      });
+      let buf = '';
+      const timer = setTimeout(() => { sock.destroy(); reject(new Error('握手超时')); }, 3000);
+      sock.on('data', (c) => {
+        buf += c.toString('latin1');
+        if (buf.includes('101')) { clearTimeout(timer); resolve(sock); }
+      });
+      sock.on('error', (e) => { clearTimeout(timer); reject(e); });
+    });
+    assert.ok(upSockets.length >= 1, '上游已建立 WS 连接');
+
+    // 浏览器直接关页：发 FIN（end），不发 WS close 帧
+    const upstreamClosed = new Promise((resolve) => {
+      upSockets[0].once('close', resolve);
+      upSockets[0].once('error', () => resolve('error'));
+    });
+    client.end();
+    const result = await Promise.race([upstreamClosed, new Promise((r) => setTimeout(() => r('timeout'), 2000))]);
+    assert.notEqual(result, 'timeout', '客户端 FIN 后上游连接被销毁（不再 half-open 悬挂）');
+
+    // 代理仍可服务新请求（连接槽未泄漏）
+    const res = await fetch(`http://127.0.0.1:${proxy.port}/after`);
+    assert.equal(res.status, 200);
+  } finally {
+    try { await proxy.close(); } catch { /* 已关 */ }
+    await new Promise((r) => up.close(r));
+  }
+});
+
 test('WebSocket upgrade：原样透传（DSH 流式通道的前提）', async () => {
   const up = await fakeUpstream();
   const proxy = await createPocketProxy({ port: 0, host: '127.0.0.1', upstream: { host: '127.0.0.1', port: up.port } });
