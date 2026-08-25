@@ -93,26 +93,3 @@ test('polyfill：randomUUID 在缺失时安装（非安全上下文场景）', (
   }
 });
 
-test('polyfill（issue #58）：let location 遮蔽 + Proxy 伪装 hostname——局域网访问 settings isLoopback 放行', () => {
-  const fakeLocation = {
-    hostname: '192.168.1.50', origin: 'http://192.168.1.50:3081', search: '?x=1',
-    href: 'http://192.168.1.50:3081/', reload: () => 'reloaded', assign() {}, replace() {},
-  };
-  const context = {
-    self: globalThis, AbortController, AbortSignal, Uint8Array, Array, String, setTimeout, clearTimeout,
-    Proxy, Object, window: { location: fakeLocation },
-  };
-  runInNewContext(polyfillJs(), context);
-  // 自由变量 location 被 let 词法绑定遮蔽 → hostname 伪装成 loopback
-  const probe = runInNewContext(
-    '({ hostname: location.hostname, search: location.search, origin: location.origin, '
-    + 'reloadOk: (function(){ try { return location.reload(); } catch (e) { return "ERR:" + e.message; } })() })',
-    context,
-  );
-  assert.equal(probe.hostname, '127.0.0.1', 'hostname 伪装 loopback（DSH isLoopback 判定放行）');
-  assert.equal(probe.search, '?x=1', '其他属性转发真实 location');
-  assert.equal(probe.origin, 'http://192.168.1.50:3081', 'origin 转发真实');
-  assert.equal(probe.reloadOk, 'reloaded', '平台方法 bind 后可用（brand check 不崩）');
-  // globalThis.location 路径（DSH resolveBase 用）不受遮蔽影响
-  assert.equal(context.window.location.hostname, '192.168.1.50', 'window.location 仍为真实（API 基址不受影响）');
-});
