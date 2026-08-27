@@ -109,7 +109,7 @@ npx @deepseek-ai/dsh web
 ## 💻 DSH Desktop（桌面版）
 
 - 桌面版里 dsh-pocket 的**扫码同屏**正常可用；**更新/重启由桌面版管理**（插件内这两项自动停用）
-- ⚠️ 桌面端 **advanced 模式**暂不支持手机访问（该模式禁用网页布局、手机拿不到 layout 服务，会白屏）——请切回 **compatibility** 模式后重启；advanced 模式下手机打开会看到明确的提示层
+- ✅ 桌面端 **advanced 模式**也支持手机访问：代理会为手机请求回插官方 `@deepseek-ai/dsh-client-ui-layout` 并自托管其 bundle；桌面窗口本身不受影响。若布局包无法解析，日志会提示并建议切回 **compatibility** 模式
 
 ## 🩹 常见问题（别踩的坑）
 

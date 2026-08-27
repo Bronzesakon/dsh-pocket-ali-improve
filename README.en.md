@@ -109,7 +109,7 @@ On the same page click "**Enable anywhere**" → **a security disclaimer pops up
 ## 💻 DSH Desktop
 
 - In the desktop app, **QR screen-mirroring works**; **update/restart are managed by the desktop app** (auto-disabled here).
-- ⚠️ The desktop **advanced mode** doesn't support phone access yet (it disables the web layout; the phone gets no layout service → blank screen). Switch back to **compatibility** mode and restart; phones opening an advanced-mode page will see a clear notice overlay.
+- ✅ The desktop **advanced mode** now supports phone access: the proxy restores the official `@deepseek-ai/dsh-client-ui-layout` entry and self-hosts its bundle for phone requests; the desktop window is unchanged. If the bundle cannot be resolved, the log recommends switching back to **compatibility** mode.
 
 ## 🩹 Troubleshooting (traps users step on)
 

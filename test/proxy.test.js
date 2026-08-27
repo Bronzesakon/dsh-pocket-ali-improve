@@ -787,12 +787,3 @@ test('登录速率限制（issue #40 改进版 A）：单 IP 失败达阈值锁�
     await new Promise((r) => up.close(r));
   }
 });
-
-test('advancedNoticeScript：注入 advanced 模式提示覆盖层（issue #19）', async () => {
-  const { advancedNoticeScript } = await import('../lib/proxy.mjs');
-  const s = advancedNoticeScript();
-  assert.ok(s.includes('dsh-pocket-advanced-notice'), '有标记');
-  assert.ok(s.includes('advanced'), '提示 advanced');
-  assert.ok(s.includes('compatibility'), '提示切回 compatibility');
-  assert.ok(s.includes('position:fixed'), '固定覆盖层（白屏也能看到）');
-});

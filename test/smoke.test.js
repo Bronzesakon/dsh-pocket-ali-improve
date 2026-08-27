@@ -144,3 +144,50 @@ test('Windows 更新 spawn（PR #54）：performUpdate 的 spawn 必须带 shell
   const seg = src.slice(src.indexOf("spawn('dsh'"), src.indexOf('spawn(\'dsh\')') + 500);
   assert.ok(src.includes("shell: process.platform === 'win32'"), 'spawn 带 shell: win32（npm shim ENOENT / Node22 EINVAL）');
 });
+
+test('client bundle contains narrow composer containment', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../client/client.js', import.meta.url), 'utf8');
+  const hasRule = (selector, declaration) => {
+    let start = -1;
+    while ((start = src.indexOf(`${selector} {`, start + 1)) !== -1) {
+      const end = src.indexOf('}', start);
+      if (end !== -1 && src.slice(start, end).includes(declaration)) return true;
+    }
+    return false;
+  };
+
+  assert.ok(src.includes('document.querySelectorAll("[data-phase] textarea")'), 'textarea relationship locates the composer card');
+  assert.ok(src.includes('setAttribute("data-composer-card", "")'), 'textarea relationship marks the composer card');
+  assert.ok(src.includes('removeProperty("--dsh-mobile-dialog-shift-x")'), 'open composer dialogs are kept inside the viewport');
+  for (const selector of [
+    '[data-composer-card]',
+    '[data-composer-card] [class*="_tools"]',
+    '[data-composer-card] [class*="_modes"]',
+    '[data-composer-card] [class*="_trailing"]'
+  ]) {
+    assert.ok(hasRule(selector, 'overflow: visible !important;'), `${selector} must not clip its dialog`);
+  }
+  assert.ok(
+    hasRule('[data-composer-card] [role="dialog"]', 'translate: var(--dsh-mobile-dialog-shift-x, 0px) 0 !important;'),
+    'dialog shift is composed separately from its existing transform'
+  );
+  assert.ok(
+    hasRule('[data-composer-card] [class*="_select"]', 'overflow: hidden !important;'),
+    'model text remains clipped for ellipsis'
+  );
+});
+
+test('client bundle keeps mobile controls and stats readable without horizontal scrolling', async () => {
+  const { readFileSync } = await import('node:fs');
+  const src = readFileSync(new URL('../client/client.js', import.meta.url), 'utf8');
+  assert.ok(src.includes('display: contents !important;'), 'composer wrappers flatten into the two responsive rows');
+  assert.ok(src.includes(':has(> button[aria-haspopup="menu"])'), 'the model picker has an explicit upper-row order');
+  assert.ok(src.includes(':has(> .hdcp-pill)'), 'the Harmony device control retains its lower-row order');
+  assert.ok(src.includes('> :not(:last-child),'), 'extension controls default to the context slot instead of source order');
+  assert.ok(src.includes('data-mobile-nav="files"'), 'desktop files marker remains available to the drawer flow');
+  assert.ok(src.includes('flex-flow: row wrap !important;'), 'stats band wraps on narrow screens');
+  assert.ok(src.includes('overflow-x: hidden !important;'), 'stats band has no horizontal scroller');
+  assert.ok(src.includes('white-space: normal !important;'), 'stats text is allowed to wrap');
+  assert.ok(!src.includes('overscroll-behavior-x: contain;'), 'old swipe-only stats behavior is removed');
+});
